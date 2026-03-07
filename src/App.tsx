@@ -216,7 +216,7 @@ function AppInner() {
   const [selectedRound, setSelectedRound] = useState<bigint|null>(null)
   const { data: selectedRoundData } = useRound(selectedRound ?? undefined)
 
-  const totalRounds = nextId ? Number(nextId) - 1 : 0
+  const totalRounds = nextId && Number(nextId) > 0 ? Number(nextId) - 1 : 0
   const roundIds = Array.from({ length: Math.min(9, totalRounds) }, (_, i) => BigInt(totalRounds - i)).filter(id => id > 0n)
 
   const sr = selectedRoundData as unknown as Round | undefined

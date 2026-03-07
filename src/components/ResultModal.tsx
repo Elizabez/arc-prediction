@@ -1,104 +1,37 @@
-import { useEffect, useState } from 'react'
-import { formatUsdc, formatPrice } from '../hooks/usePrediction'
+import React from 'react';
 
-interface ResultModalProps {
-  isOpen: boolean
-  onClose: () => void
-  won: boolean
-  position: 0 | 1
-  betAmount: bigint
-  payout: bigint
-  lockPrice: bigint
-  closePrice: bigint
-  asset: string
-  onClaim: () => void
-  isClaiming: boolean
-  claimed: boolean
-}
-
-export default function ResultModal({
-  isOpen, onClose, won, position, betAmount, payout,
-  lockPrice, closePrice, asset, onClaim, isClaiming, claimed
-}: ResultModalProps) {
-  const [show, setShow] = useState(false)
-
-  useEffect(() => {
-    if (isOpen) setTimeout(() => setShow(true), 10)
-    else setShow(false)
-  }, [isOpen])
-
-  if (!isOpen) return null
-
-  const profit = payout - betAmount
-  const priceDir = closePrice > lockPrice ? 'UP' : 'DOWN'
+export const ResultModal = ({ 
+  isOpen, 
+  onClose, 
+  result 
+}: { 
+  isOpen: boolean; 
+  onClose: () => void; 
+  result: { won: boolean; amount: string } | null 
+}) => {
+  if (!isOpen || !result) return null;
 
   return (
-    <div className={`modal-overlay ${show ? 'visible' : ''}`} onClick={onClose}>
-      <div className={`result-modal ${show ? 'visible' : ''} ${won ? 'won' : 'lost'}`} onClick={e => e.stopPropagation()}>
-        <button className="modal-close" onClick={onClose}>✕</button>
-
-        <div className="result-icon">{won ? '🎉' : '😔'}</div>
-        <h2 className={`result-title ${won ? 'up' : 'down'}`}>
-          {won ? 'You Won!' : 'Better Luck Next Time'}
-        </h2>
-
-        <div className="result-stats">
-          <div className="result-row">
-            <span>Your position</span>
-            <span className={position === 0 ? 'up' : 'down'}>
-              {position === 0 ? '▲ UP' : '▼ DOWN'}
-            </span>
-          </div>
-          <div className="result-row">
-            <span>Result</span>
-            <span className={priceDir === 'UP' ? 'up' : 'down'}>
-              {priceDir === 'UP' ? '▲ UP' : '▼ DOWN'}
-            </span>
-          </div>
-          <div className="result-row">
-            <span>Lock price</span>
-            <span>${formatPrice(lockPrice)}</span>
-          </div>
-          <div className="result-row">
-            <span>Close price</span>
-            <span className={closePrice > lockPrice ? 'up' : 'down'}>
-              ${formatPrice(closePrice)}
-            </span>
-          </div>
-          <div className="result-divider" />
-          <div className="result-row">
-            <span>Your bet</span>
-            <span>{formatUsdc(betAmount)} USDC</span>
-          </div>
-          {won && (
-            <>
-              <div className="result-row">
-                <span>Payout</span>
-                <span className="up">+{formatUsdc(payout)} USDC</span>
-              </div>
-              <div className="result-row profit">
-                <span>Profit</span>
-                <span className="up">+{formatUsdc(profit)} USDC</span>
-              </div>
-            </>
-          )}
-          {!won && (
-            <div className="result-row">
-              <span>Lost</span>
-              <span className="down">-{formatUsdc(betAmount)} USDC</span>
-            </div>
-          )}
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+      <div className="w-full max-w-sm bg-slate-900 border border-slate-800 rounded-2xl p-6 text-center shadow-2xl">
+        <div className={`text-6xl mb-4 ${result.won ? 'scale-110' : 'grayscale'}`}>
+          {result.won ? '🎉' : '😔'}
         </div>
-
-        {won && !claimed && (
-          <button className="btn-claim-big" onClick={onClaim} disabled={isClaiming}>
-            {isClaiming ? 'Claiming...' : `🏆 Claim ${formatUsdc(payout)} USDC`}
-          </button>
-        )}
-        {claimed && (
-          <div className="claimed-success">✓ Claimed successfully!</div>
-        )}
+        <h2 className="text-2xl font-bold text-white mb-2">
+          {result.won ? 'Bạn đã thắng!' : 'Rất tiếc...'}
+        </h2>
+        <p className="text-slate-400 mb-6">
+          {result.won 
+            ? `Bạn nhận được ${result.amount} USDC vào ví.` 
+            : 'Dự đoán của bạn chưa chính xác lần này.'}
+        </p>
+        <button
+          onClick={onClose}
+          className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition-colors"
+        >
+          Đóng
+        </button>
       </div>
     </div>
-  )
-}
+  );
+};

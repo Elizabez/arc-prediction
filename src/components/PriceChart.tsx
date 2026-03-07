@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
-import { createChart, IChartApi, ISeriesApi, LineData, Time } from 'lightweight-charts'
+import { createChart, IChartApi, ISeriesApi, Time, LineStyle } from 'lightweight-charts'
 
 interface PriceChartProps {
   asset: 'BTC' | 'ETH'
   lockPrice?: number
   closePrice?: number
-  status?: number // 0=OPEN, 1=LOCKED, 2=RESOLVED
+  status?: number
 }
 
 const COINGECKO_IDS: Record<string, string> = {
@@ -16,12 +16,13 @@ const COINGECKO_IDS: Record<string, string> = {
 export default function PriceChart({ asset, lockPrice, closePrice, status }: PriceChartProps) {
   const chartRef = useRef<HTMLDivElement>(null)
   const chart = useRef<IChartApi | null>(null)
-  const lineSeries = useRef<ISeriesApi<'Area'> | null>(null)
+  const lineSeries = useRef<ISeriesApi<'Line'> | null>(null)
+  const lockLine = useRef<any>(null)
+  const closeLine = useRef<any>(null)
   const [currentPrice, setCurrentPrice] = useState<number | null>(null)
   const [priceChange, setPriceChange] = useState<number>(0)
   const [isLoading, setIsLoading] = useState(true)
 
-  // Init chart
   useEffect(() => {
     if (!chartRef.current) return
 
@@ -29,38 +30,24 @@ export default function PriceChart({ asset, lockPrice, closePrice, status }: Pri
       width: chartRef.current.clientWidth,
       height: 280,
       layout: {
-        background: { color: 'transparent' },
+        background: { color: 'transparent' } as any,
         textColor: '#5a6a8a',
       },
       grid: {
         vertLines: { color: '#1e2d4a22' },
         horzLines: { color: '#1e2d4a22' },
       },
-      crosshair: {
-        vertLine: { color: '#3b7bff44', width: 1, style: 1 },
-        horzLine: { color: '#3b7bff44', width: 1, style: 1 },
-      },
-      rightPriceScale: {
-        borderColor: '#1e2d4a',
-        textColor: '#5a6a8a',
-      },
+      rightPriceScale: { borderColor: '#1e2d4a' },
       timeScale: {
         borderColor: '#1e2d4a',
-        textColor: '#5a6a8a',
         timeVisible: true,
         secondsVisible: false,
       },
-      handleScroll: true,
-      handleScale: true,
     })
 
-    lineSeries.current = chart.current.addAreaSeries({
-      lineColor: '#3b7bff',
-      topColor: '#3b7bff33',
-      bottomColor: '#3b7bff00',
+    lineSeries.current = chart.current.addLineSeries({
+      color: '#3b7bff',
       lineWidth: 2,
-      crosshairMarkerVisible: true,
-      crosshairMarkerRadius: 5,
     })
 
     const handleResize = () => {
@@ -75,7 +62,6 @@ export default function PriceChart({ asset, lockPrice, closePrice, status }: Pri
     }
   }, [])
 
-  // Fetch historical data
   useEffect(() => {
     const fetchHistory = async () => {
       setIsLoading(true)
@@ -86,45 +72,32 @@ export default function PriceChart({ asset, lockPrice, closePrice, status }: Pri
         )
         const data = await res.json()
         if (data.prices && lineSeries.current) {
-          const formatted: LineData[] = data.prices.map(([ts, price]: [number, number]) => ({
-            time: Math.floor(ts / 1000) as Time,
-            value: price,
-          }))
-          // Deduplicate by time
-          const seen = new Set()
-          const deduped = formatted.filter(d => {
-            if (seen.has(d.time)) return false
-            seen.add(d.time)
-            return true
-          })
-          lineSeries.current.setData(deduped)
-          const last = deduped[deduped.length - 1]
-          const first = deduped[0]
-          setCurrentPrice(last.value)
-          setPriceChange(((last.value - first.value) / first.value) * 100)
+          const seen = new Set<number>()
+          const formatted = data.prices
+            .map(([ts, price]: [number, number]) => ({ time: Math.floor(ts / 1000) as Time, value: price }))
+            .filter((d: any) => { if (seen.has(d.time as number)) return false; seen.add(d.time as number); return true })
+          lineSeries.current.setData(formatted)
+          if (formatted.length > 0) {
+            setCurrentPrice(formatted[formatted.length - 1].value)
+            setPriceChange(((formatted[formatted.length - 1].value - formatted[0].value) / formatted[0].value) * 100)
+          }
           chart.current?.timeScale().fitContent()
         }
-      } catch (e) {
-        console.error('Failed to fetch price history', e)
-      }
+      } catch (e) { console.error(e) }
       setIsLoading(false)
     }
     fetchHistory()
   }, [asset])
 
-  // Realtime price update every 15s
   useEffect(() => {
     const fetchCurrent = async () => {
       try {
         const id = COINGECKO_IDS[asset]
-        const res = await fetch(
-          `https://api.coingecko.com/api/v3/simple/price?ids=${id}&vs_currencies=usd`
-        )
+        const res = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${id}&vs_currencies=usd`)
         const data = await res.json()
         const price = data[id]?.usd
         if (price && lineSeries.current) {
-          const now = Math.floor(Date.now() / 1000) as Time
-          lineSeries.current.update({ time: now, value: price })
+          lineSeries.current.update({ time: Math.floor(Date.now() / 1000) as Time, value: price })
           setCurrentPrice(price)
         }
       } catch (e) {}
@@ -133,35 +106,34 @@ export default function PriceChart({ asset, lockPrice, closePrice, status }: Pri
     return () => clearInterval(id)
   }, [asset])
 
-  // Draw lock/close price lines
+  // Draw lock/close price lines using priceLine API
   useEffect(() => {
-    if (!chart.current) return
-    const markers: any[] = []
+    if (!lineSeries.current) return
+
+    // Remove old lines
+    if (lockLine.current) { try { lineSeries.current.removePriceLine(lockLine.current) } catch(e){} lockLine.current = null }
+    if (closeLine.current) { try { lineSeries.current.removePriceLine(closeLine.current) } catch(e){} closeLine.current = null }
 
     if (lockPrice && lockPrice > 0 && status && status >= 1) {
-      // Add lock price as horizontal line marker
-      lineSeries.current?.applyOptions({
-        priceLines: [
-          {
-            price: lockPrice,
-            color: '#f5c842',
-            lineWidth: 1,
-            lineStyle: 2,
-            axisLabelVisible: true,
-            title: `Lock $${lockPrice.toLocaleString()}`,
-          },
-          ...(closePrice && closePrice > 0 && status === 2 ? [{
-            price: closePrice,
-            color: closePrice > lockPrice ? '#00e5a0' : '#ff4d6d',
-            lineWidth: 1,
-            lineStyle: 2,
-            axisLabelVisible: true,
-            title: `Close $${closePrice.toLocaleString()}`,
-          }] : []),
-        ],
+      lockLine.current = lineSeries.current.createPriceLine({
+        price: lockPrice,
+        color: '#f5c842',
+        lineWidth: 1,
+        lineStyle: LineStyle.Dashed,
+        axisLabelVisible: true,
+        title: `Lock $${lockPrice.toLocaleString('en-US', { maximumFractionDigits: 0 })}`,
       })
-    } else {
-      lineSeries.current?.applyOptions({ priceLines: [] })
+    }
+
+    if (closePrice && closePrice > 0 && status === 2) {
+      closeLine.current = lineSeries.current.createPriceLine({
+        price: closePrice,
+        color: closePrice > (lockPrice ?? 0) ? '#00e5a0' : '#ff4d6d',
+        lineWidth: 1,
+        lineStyle: LineStyle.Dashed,
+        axisLabelVisible: true,
+        title: `Close $${closePrice.toLocaleString('en-US', { maximumFractionDigits: 0 })}`,
+      })
     }
   }, [lockPrice, closePrice, status])
 
@@ -187,7 +159,6 @@ export default function PriceChart({ asset, lockPrice, closePrice, status }: Pri
         )}
       </div>
 
-      {/* Lock/Close price legend */}
       {lockPrice && lockPrice > 0 && status && status >= 1 && (
         <div className="chart-legend">
           <div className="legend-item">

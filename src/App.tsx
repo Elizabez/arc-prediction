@@ -214,7 +214,7 @@ function AppInner() {
   const [asset, setAsset] = useState<'BTC'|'ETH'>('BTC')
   const [chartAsset, setChartAsset] = useState<'BTC'|'ETH'>('BTC')
   const [selectedRound, setSelectedRound] = useState<bigint|null>(null)
-  const { data: selectedRoundData } = useRound(selectedRound === null ? undefined : selectedRound)
+  const { data: selectedRoundData } = useRound(selectedRound ?? undefined)
 
   const totalRounds = nextId ? Number(nextId) - 1 : 0
   const roundIds = Array.from({ length: Math.min(9, totalRounds) }, (_, i) => BigInt(totalRounds - i)).filter(id => id > 0n)
@@ -249,7 +249,7 @@ function AppInner() {
               {a==='BTC'?'₿':'Ξ'} {a}
             </button>
           ))}
-          {selectedRound && sr && (
+          {selectedRound !== null && sr && (
             <span className="chart-round-hint">
               Viewing Round #{selectedRound.toString()}
               {chartLockPrice ? ` · Lock $${chartLockPrice.toLocaleString('en-US',{maximumFractionDigits:2})}` : ''}

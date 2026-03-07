@@ -1,20 +1,29 @@
-import { useReadContract, useWriteContract, useWaitForTransactionReceipt, useAccount } from 'wagmi'
-import { parseUnits, formatUnits } from 'viem'
+import { useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi'
+import { encodeFunctionData, parseUnits, formatUnits } from 'viem'
 import { CONTRACT_ADDRESS, USDC_ADDRESS } from '../wagmi'
-import { PREDICTION_MARKET_ABI, ERC20_ABI } from '../abi/contracts'
+import { PREDICTION_MARKET_ABI } from '../abi/contracts'
 
 export function useStartRound() {
   const { writeContract, data: hash, isPending, error } = useWriteContract()
   const { isSuccess } = useWaitForTransactionReceipt({ hash })
 
   const startRound = (asset: string) => {
-    writeContract({
-      address: CONTRACT_ADDRESS,
+    // Mã hóa dữ liệu hàm startRound
+    const data = encodeFunctionData({
       abi: PREDICTION_MARKET_ABI,
       functionName: 'startRound',
       args: [asset],
-      // Ép ví dùng chế độ Legacy Gas để không đòi ETH
-      gasPrice: parseUnits('0.1', 9), 
+    })
+
+    writeContract({
+      address: CONTRACT_ADDRESS,
+      abi: PREDICTION_MARKET_ABI, // Vẫn giữ ABI để ví hiểu tên hàm
+      functionName: 'startRound',
+      args: [asset],
+      // Thêm các thông số này để chặn ví tự nhảy sang mạng Ethereum
+      type: 'legacy',
+      gas: 500000n, // Ép giới hạn gas vừa đủ
+      gasPrice: parseUnits('1', 9), // Đặt gas price cố định
     })
   }
 

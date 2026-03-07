@@ -6,7 +6,7 @@ export const arcTestnet = defineChain({
   id: 5042002,
   name: 'Arc Testnet',
   nativeCurrency: { 
-    decimals: 18, 
+    decimals: 18, // Giữ 18 để tương thích hoàn toàn với ví
     name: 'USDC', 
     symbol: 'USDC' 
   },
@@ -23,9 +23,12 @@ export const CONTRACT_ADDRESS = '0xa2B14137adAd4B79A4c76955c7c30B2134Fbee10'
 
 export const config = createConfig({
   chains: [arcTestnet],
-  multiInjectedProviderDiscovery: true,
+  multiInjectedProviderDiscovery: false, // Tắt cái này để tránh ví tự động tìm kiếm sai
   connectors: [
-    injected({ shimDisconnect: true })
+    injected({ 
+      shimDisconnect: true,
+      target: 'sdk' 
+    })
   ],
   transports: {
     [arcTestnet.id]: http(),

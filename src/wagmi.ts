@@ -5,7 +5,7 @@ import { defineChain } from 'viem'
 export const arcTestnet = defineChain({
   id: 5042002,
   name: 'Arc Testnet',
-  nativeCurrency: { decimals: 18, name: 'Arc', symbol: 'ARC' },
+  nativeCurrency: { decimals: 6, name: 'USDC', symbol: 'USDC' },
   rpcUrls: {
     default: { http: ['https://rpc.testnet.arc.network'] },
   },
@@ -16,7 +16,7 @@ export const arcTestnet = defineChain({
 
 export const config = createConfig({
   chains: [arcTestnet],
-  // Bật tính năng tự động phát hiện tất cả ví Injected (MetaMask, OKX, Trust,...)
+  // Bật tính năng phát hiện đa ví (EIP-6963) giúp OKX và MetaMask không tranh giành nhau
   multiInjectedProviderDiscovery: true, 
   connectors: [
     injected({ shimDisconnect: true }) 

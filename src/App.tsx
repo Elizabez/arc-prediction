@@ -9,8 +9,8 @@ import {
   type Round, type Position
 } from './hooks/usePrediction'
 import { parseUnits } from 'viem'
-import PriceChart from './components/PriceChart'
-import ResultModal from './components/ResultModal'
+import { PriceChart } from './components/PriceChart'
+import { ResultModal } from './components/ResultModal'
 
 const queryClient = new QueryClient()
 

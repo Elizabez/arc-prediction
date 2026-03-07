@@ -5,7 +5,7 @@ import { defineChain } from 'viem'
 export const arcTestnet = defineChain({
   id: 5042002,
   name: 'Arc Testnet',
-  nativeCurrency: { decimals: 18, name: 'Arc', symbol: 'ARC' }, // Đổi native về ARC để ví dễ nhận diện
+  nativeCurrency: { decimals: 18, name: 'Arc', symbol: 'ARC' },
   rpcUrls: {
     default: { http: ['https://rpc.testnet.arc.network'] },
   },
@@ -19,8 +19,12 @@ export const CONTRACT_ADDRESS = '0xa2B14137adAd4B79A4c76955c7c30B2134Fbee10'
 
 export const config = createConfig({
   chains: [arcTestnet],
-  multiInjectedProviderDiscovery: false, // Tắt tự động tìm kiếm để tránh xung đột mạng Ethereum
-  connectors: [injected({ target: 'metaMask' })],
+  connectors: [
+    injected({ 
+      target: 'metaMask',
+      shimDisconnect: true 
+    })
+  ],
   transports: {
     [arcTestnet.id]: http(),
   },

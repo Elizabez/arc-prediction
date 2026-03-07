@@ -8,76 +8,65 @@ const queryClient = new QueryClient()
 
 function MainApp() {
   const [mounted, setMounted] = useState(false)
-  const [realtimePrice, setRealtimePrice] = useState<string>('0.00')
-  const [asset, setAsset] = useState<'BTC'|'ETH'>('BTC')
-  
   const { isConnected, address } = useAccount()
   const chainId = useChainId()
   const { switchChain } = useSwitchChain()
   const { connect, connectors } = useConnect()
   const { disconnect } = useDisconnect()
-  const { data: nextId } = useNextRoundId()
-  const { startRound, isPending: isStarting } = useStartRound()
 
-  useEffect(() => {
-    setMounted(true)
-    const fetchPrice = async () => {
-      try {
-        const symbol = asset === 'BTC' ? 'BTCUSDT' : 'ETHUSDT'
-        const res = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${symbol}`)
-        const data = await res.json()
-        setRealtimePrice(parseFloat(data.price).toLocaleString('en-US', { minimumFractionDigits: 2 }))
-      } catch (err) { console.error(err) }
-    }
-    fetchPrice()
-    const interval = setInterval(fetchPrice, 3000)
-    return () => clearInterval(interval)
-  }, [asset])
-
+  useEffect(() => { setMounted(true) }, [])
   if (!mounted) return null
 
   const isWrongChain = isConnected && chainId !== arcTestnet.id
 
+  const handleConnect = () => {
+    connect({ connector: connectors[0] })
+  }
+
   return (
-    <div style={{ minHeight: '100vh', background: '#0a0f1e', color: 'white', fontFamily: 'sans-serif', padding: '20px' }}>
-      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', maxWidth: '1000px', margin: '0 auto' }}>
-        <h1 style={{ color: '#3b82f6' }}>◈ ArcPredict</h1>
-        <div>
-          {isConnected ? (
-            <button onClick={() => disconnect()} style={{ background: '#ef4444', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '8px' }}>
+    <div style={{ minHeight: '100vh', background: '#0a0f1e', color: 'white', padding: '20px', textAlign: 'center' }}>
+      <nav style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '50px' }}>
+        <h2 style={{ color: '#3b82f6' }}>◈ ArcPredict</h2>
+        
+        {isConnected ? (
+          <div style={{ display: 'flex', gap: '10px' }}>
+            {isWrongChain && (
+              <button 
+                onClick={() => switchChain({ chainId: arcTestnet.id })}
+                style={{ background: '#f59e0b', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer' }}
+              >
+                ⚠ Chuyển sang Arc Network
+              </button>
+            )}
+            <button onClick={() => disconnect()} style={{ background: '#ef4444', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer' }}>
               {address?.slice(0,6)}... Logout
             </button>
-          ) : (
-            <button onClick={() => connect({ connector: connectors[0] })} style={{ background: '#3b82f6', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '8px' }}>
-              Connect Wallet
-            </button>
-          )}
-        </div>
-      </header>
+          </div>
+        ) : (
+          <button 
+            onClick={handleConnect} 
+            style={{ background: '#3b82f6', color: 'white', border: 'none', padding: '12px 24px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}
+          >
+            Connect MetaMask
+          </button>
+        )}
+      </nav>
 
-      <main style={{ maxWidth: '600px', margin: '50px auto' }}>
-        <div style={{ background: '#111827', padding: '40px', borderRadius: '24px', border: '1px solid #1e293b', textAlign: 'center' }}>
-          <h2 style={{ fontSize: '14px', color: '#64748b' }}>Current {asset} Price</h2>
-          <div style={{ fontSize: '48px', fontWeight: 'bold', margin: '15px 0' }}>${realtimePrice}</div>
-
-          {isWrongChain ? (
-            <button 
-              onClick={() => switchChain({ chainId: arcTestnet.id })}
-              style={{ width: '100%', padding: '20px', borderRadius: '16px', background: '#f59e0b', color: 'white', border: 'none', fontWeight: 'bold', cursor: 'pointer' }}
-            >
-              ⚠ Switch to Arc Testnet
+      <div style={{ marginTop: '100px' }}>
+        {!isConnected ? (
+          <div style={{ padding: '40px', background: '#111827', borderRadius: '20px', display: 'inline-block' }}>
+            <h3>Chào Vinh! 👋</h3>
+            <p style={{ color: '#94a3b8' }}>Hãy kết nối ví MetaMask để bắt đầu dự đoán.</p>
+            <button onClick={handleConnect} style={{ background: '#3b82f6', color: 'white', border: 'none', padding: '15px 30px', borderRadius: '12px', marginTop: '20px', cursor: 'pointer', fontSize: '16px' }}>
+              Bấm để kết nối ví
             </button>
-          ) : (
-            <button 
-              disabled={isStarting || !isConnected}
-              onClick={() => startRound(asset)}
-              style={{ width: '100%', padding: '20px', borderRadius: '16px', background: '#10b981', color: 'white', border: 'none', fontWeight: 'bold', cursor: 'pointer', opacity: isConnected ? 1 : 0.5 }}
-            >
-              {isStarting ? 'Confirming...' : isConnected ? `▶ Start ${asset} Round` : 'Please Connect Wallet'}
-            </button>
-          )}
-        </div>
-      </main>
+          </div>
+        ) : (
+          <div style={{ color: '#10b981' }}>
+            ✅ Đã kết nối thành công mạng Arc Testnet!
+          </div>
+        )}
+      </div>
     </div>
   )
 }

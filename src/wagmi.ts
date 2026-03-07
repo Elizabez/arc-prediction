@@ -14,16 +14,12 @@ export const arcTestnet = defineChain({
   },
 })
 
-export const USDC_ADDRESS = '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238'
-export const CONTRACT_ADDRESS = '0xa2B14137adAd4B79A4c76955c7c30B2134Fbee10'
-
 export const config = createConfig({
   chains: [arcTestnet],
+  // Bật tính năng tự động phát hiện tất cả ví Injected (MetaMask, OKX, Trust,...)
+  multiInjectedProviderDiscovery: true, 
   connectors: [
-    injected({ 
-      target: 'metaMask',
-      shimDisconnect: true 
-    })
+    injected({ shimDisconnect: true }) 
   ],
   transports: {
     [arcTestnet.id]: http(),

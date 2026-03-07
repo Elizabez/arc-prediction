@@ -5,11 +5,7 @@ import { injected, walletConnect } from 'wagmi/connectors'
 export const arcTestnet = defineChain({
   id: 5042002,
   name: 'Arc Testnet',
-  nativeCurrency: {
-    decimals: 6,
-    name: 'USDC',
-    symbol: 'USDC',
-  },
+  nativeCurrency: { decimals: 6, name: 'USDC', symbol: 'USDC' },
   rpcUrls: {
     default: { http: ['https://rpc.testnet.arc.network'] },
   },
@@ -25,7 +21,7 @@ export const USDC_ADDRESS = (import.meta.env['VITE_USDC_ADDRESS'] ?? '0x1c7D4B19
 export const config = createConfig({
   chains: [arcTestnet],
   connectors: [
-    injected(),
+    injected({ target: 'metaMask' }),
     walletConnect({ projectId: import.meta.env['VITE_WC_PROJECT_ID'] ?? 'demo' }),
   ],
   transports: {

@@ -1,6 +1,9 @@
 import { createConfig, http } from 'wagmi'
-import { arcTestnet } from './App' // Hoặc định nghĩa trực tiếp nếu lỗi
 import { injected } from 'wagmi/connectors'
+
+// Export các địa chỉ để usePrediction.ts có thể sử dụng
+export const USDC_ADDRESS = '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238'
+export const CONTRACT_ADDRESS = '0xa2B14137adAd4B79A4c76955c7c30B2134Fbee10'
 
 export const config = createConfig({
   chains: [{

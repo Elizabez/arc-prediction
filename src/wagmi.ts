@@ -1,30 +1,15 @@
 import { createConfig, http } from 'wagmi'
-import { defineChain } from 'viem'
-import { injected, walletConnect } from 'wagmi/connectors'
-
-export const arcTestnet = defineChain({
-  id: 5042002,
-  name: 'Arc Testnet',
-  nativeCurrency: { decimals: 6, name: 'USDC', symbol: 'USDC' },
-  rpcUrls: {
-    default: { http: ['https://rpc.testnet.arc.network'] },
-  },
-  blockExplorers: {
-    default: { name: 'ArcScan', url: 'https://testnet.arcscan.app' },
-  },
-  testnet: true,
-})
-
-export const CONTRACT_ADDRESS = (import.meta.env['VITE_CONTRACT_ADDRESS'] ?? '0x0000000000000000000000000000000000000000') as `0x${string}`
-export const USDC_ADDRESS = (import.meta.env['VITE_USDC_ADDRESS'] ?? '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238') as `0x${string}`
+import { arcTestnet } from './App' // Hoặc định nghĩa trực tiếp nếu lỗi
+import { injected } from 'wagmi/connectors'
 
 export const config = createConfig({
-  chains: [arcTestnet],
-  connectors: [
-    injected({ target: 'metaMask' }),
-    walletConnect({ projectId: import.meta.env['VITE_WC_PROJECT_ID'] ?? 'demo' }),
-  ],
-  transports: {
-    [arcTestnet.id]: http(),
-  },
+  chains: [{
+    id: 5042002,
+    name: 'Arc Testnet',
+    nativeCurrency: { decimals: 6, name: 'USDC', symbol: 'USDC' },
+    rpcUrls: { default: { http: ['https://rpc.testnet.arc.network'] } },
+    blockExplorers: { default: { name: 'ArcScan', url: 'https://testnet.arcscan.app' } },
+  }],
+  connectors: [injected()],
+  transports: { [5042002]: http() },
 })

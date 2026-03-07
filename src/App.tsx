@@ -1,54 +1,43 @@
 import { useState, useEffect } from 'react'
-import { WagmiProvider, useAccount, useConnect, useDisconnect, useChainId, useSwitchChain } from 'wagmi'
+import { WagmiProvider, useAccount, useConfig } from 'wagmi'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { config, arcTestnet } from './wagmi'
-import {
-  useRound, useNextRoundId, useUsdcBalance,
-  timeLeft,
-} from './hooks/usePrediction'
+import { config, arcTestnet, CONTRACT_ADDRESS } from './wagmi'
+import { useNextRoundId } from './hooks/usePrediction'
 import { PriceChart } from './components/PriceChart'
 
 const queryClient = new QueryClient()
 
-function AppInner() {
-  // Fix lỗi Hydration (Màn hình đen lúc khởi tạo)
+function AppContent() {
   const [mounted, setMounted] = useState(false)
   useEffect(() => setMounted(true), [])
 
-  const { isConnected } = useAccount()
-  const { data: nextId } = useNextRoundId()
-  const [chartAsset, setChartAsset] = useState<'BTC'|'ETH'>('BTC')
-
-  // Logic tính toán Round an toàn để tránh crash
-  const totalRounds = nextId && Number(nextId) > 0 ? Number(nextId) - 1 : 0
-  const roundIds = totalRounds > 0 
-    ? Array.from({ length: Math.min(9, totalRounds) }, (_, i) => BigInt(totalRounds - i))
-    : []
+  const { isConnected, address } = useAccount()
+  const { data: nextId, isError } = useNextRoundId()
 
   if (!mounted) return null
 
   return (
-    <div className="app" style={{ minHeight: '100vh', background: '#0f172a', color: 'white', padding: '20px' }}>
-      <nav className="navbar" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '40px' }}>
-        <div className="brand">
-          <h1 style={{ margin: 0, color: '#60a5fa' }}>ArcPredict</h1>
-          <small>on Arc Testnet</small>
+    <div style={{ minHeight: '100vh', background: '#0a0f1e', color: 'white', padding: '20px', fontFamily: 'sans-serif' }}>
+      <header style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #1e293b', paddingBottom: '20px' }}>
+        <div>
+          <h1 style={{ margin: 0, color: '#3b82f6' }}>ArcPredict</h1>
+          <code style={{ fontSize: '12px', color: '#64748b' }}>Contract: {CONTRACT_ADDRESS}</code>
         </div>
-        <div className="wallet-status">
-           {isConnected ? "✅ Wallet Connected" : "❌ Not Connected"}
+        <div style={{ background: '#1e293b', padding: '10px 15px', borderRadius: '8px' }}>
+          {isConnected ? `Connected: ${address?.slice(0,6)}...` : 'Please Connect Wallet'}
         </div>
-      </nav>
+      </header>
 
-      <div className="chart-section" style={{ background: '#1e293b', padding: '20px', borderRadius: '12px', marginBottom: '30px' }}>
-        <h2 style={{ marginTop: 0 }}>Market Chart</h2>
-        <PriceChart asset={chartAsset} />
-      </div>
+      <main style={{ marginTop: '30px' }}>
+        <div style={{ background: '#111827', borderRadius: '12px', padding: '20px', border: '1px solid #1e293b' }}>
+          <PriceChart asset="BTC" />
+        </div>
 
-      <div className="rounds-status">
-        <h3>System Status</h3>
-        <p>Total Rounds found: {totalRounds}</p>
-        <p>Contract: {import.meta.env.VITE_CONTRACT_ADDRESS || "Warning: Env VITE_CONTRACT_ADDRESS is missing!"}</p>
-      </div>
+        <div style={{ marginTop: '20px', padding: '15px', background: '#1e293b', borderRadius: '8px' }}>
+          <h3>Network Status</h3>
+          <p>Next Round ID: {nextId?.toString() || (isError ? 'Error loading data' : 'Connecting to Arc Testnet...')}</p>
+        </div>
+      </main>
     </div>
   )
 }
@@ -57,7 +46,7 @@ export default function App() {
   return (
     <WagmiProvider config={config}>
       <QueryClientProvider client={queryClient}>
-        <AppInner />
+        <AppContent />
       </QueryClientProvider>
     </WagmiProvider>
   )

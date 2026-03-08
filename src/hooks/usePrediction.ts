@@ -1,5 +1,5 @@
-import { useWriteContract, useWaitForTransactionReceipt, useReadContract, useChainId, useSwitchChain } from 'wagmi'
-import { parseUnits, formatUnits } from 'viem'
+import { useWriteContract, useReadContract, useChainId, useSwitchChain } from 'wagmi'
+import { parseUnits } from 'viem'
 import { CONTRACT_ADDRESS, arcTestnet, USDC_ADDRESS } from '../wagmi'
 import { PREDICTION_MARKET_ABI } from '../abi/contracts'
 import { erc20Abi } from 'viem'
@@ -7,7 +7,6 @@ import { erc20Abi } from 'viem'
 export function useAdminActions() {
   const { writeContract, data: hash, isPending } = useWriteContract()
   
-  // Hàm Approve: Cho phép Contract rút USDC từ ví của Vinh
   const approveUSDC = (amount: string) => {
     writeContract({
       address: USDC_ADDRESS,
@@ -17,22 +16,20 @@ export function useAdminActions() {
     })
   }
 
-  // Hàm Deposit: Nạp USDC vào Pool
   const depositPool = (amount: string) => {
     writeContract({
       address: CONTRACT_ADDRESS,
       abi: PREDICTION_MARKET_ABI,
-      functionName: 'deposit', // Tên hàm giả định trong Contract của bạn
+      functionName: 'deposit',
       args: [parseUnits(amount, 6)],
     })
   }
 
-  // Hàm Withdraw: Rút USDC về ví (Chỉ Admin mới chạy được)
   const withdrawPool = (amount: string) => {
     writeContract({
       address: CONTRACT_ADDRESS,
       abi: PREDICTION_MARKET_ABI,
-      functionName: 'withdraw', // Tên hàm giả định trong Contract của bạn
+      functionName: 'withdraw',
       args: [parseUnits(amount, 6)],
     })
   }
@@ -41,7 +38,7 @@ export function useAdminActions() {
 }
 
 export function useStartRound() {
-  const { writeContract, data: hash, isPending } = useWriteContract()
+  const { writeContract, isPending } = useWriteContract()
   const chainId = useChainId()
   const { switchChain } = useSwitchChain()
 

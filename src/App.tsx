@@ -3,108 +3,101 @@ import { WagmiProvider, useAccount, useBalance, useChainId, useSwitchChain } fro
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ConnectKitProvider, ConnectKitButton } from 'connectkit'
 import { config, arcTestnet, USDC_ADDRESS } from './wagmi'
-import { useNextRoundId, useStartRound } from './hooks/usePrediction'
+import { useNextRoundId, useStartRound, useAdminActions } from './hooks/usePrediction'
 
 const queryClient = new QueryClient()
 
-function TradingInterface() {
-  const { address, isConnected } = useAccount()
-  const chainId = useChainId()
-  const { switchChain } = useSwitchChain()
-  const { data: balance } = useBalance({ address, token: USDC_ADDRESS })
-  const { startRound, isPending } = useStartRound()
-  
-  const [amount, setAmount] = useState('10')
-  const [leverage, setLeverage] = useState(5)
-  const [price, setPrice] = useState(65432.10)
-
-  // Giả lập chart nhảy đơn giản
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setPrice(prev => prev + (Math.random() * 10 - 5))
-    }, 2000)
-    return () => clearInterval(interval)
-  }, [])
-
-  const handleBet = () => {
-    if (chainId !== arcTestnet.id) {
-      switchChain({ chainId: arcTestnet.id })
-      return
-    }
-    startRound('BTC')
-  }
+function AdminPanel() {
+  const [adminAmount, setAdminAmount] = useState('100')
+  const { approveUSDC, depositPool, withdrawPool, isPending } = useAdminActions()
 
   return (
-    <div style={{ width: '100%', maxWidth: '900px', display: 'grid', gridTemplateColumns: '1fr 320px', gap: '20px', padding: '20px' }}>
-      {/* Cột trái: Chart & Info */}
-      <div style={{ background: '#111827', borderRadius: '24px', padding: '30px', border: '1px solid #1e293b' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '40px' }}>
-          <div>
-            <h1 style={{ margin: 0, fontSize: '24px' }}>BTC / USDC</h1>
-            <span style={{ color: '#10b981', fontSize: '32px', fontWeight: 'bold' }}>${price.toFixed(2)}</span>
+    <div style={{ marginTop: '50px', padding: '30px', background: '#0f172a', borderRadius: '20px', border: '1px dashed #334155', textAlign: 'left' }}>
+      <h3 style={{ color: '#3b82f6', fontSize: '14px', marginBottom: '20px', letterSpacing: '1px' }}>ADMIN CONSOLE (OWNER ONLY)</h3>
+      <div style={{ display: 'flex', gap: '10px', marginBottom: '15px' }}>
+        <input 
+          type="number" 
+          value={adminAmount}
+          onChange={(e) => setAdminAmount(e.target.value)}
+          style={{ flex: 1, background: '#1e293b', border: '1px solid #334155', padding: '12px', borderRadius: '10px', color: 'white' }}
+          placeholder="Amount USDC..."
+        />
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
+        <button onClick={() => approveUSDC(adminAmount)} style={{ background: '#334155', color: 'white', border: 'none', padding: '12px', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold' }}>1. Approve</button>
+        <button onClick={() => depositPool(adminAmount)} style={{ background: '#2563eb', color: 'white', border: 'none', padding: '12px', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold' }}>2. Deposit</button>
+        <button onClick={() => withdrawPool(adminAmount)} style={{ background: '#991b1b', color: 'white', border: 'none', padding: '12px', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold' }}>Withdraw</button>
+      </div>
+    </div>
+  )
+}
+
+function TradingInterface() {
+  const { address, isConnected } = useAccount()
+  const { data: balance } = useBalance({ address, token: USDC_ADDRESS })
+  const { startRound, isPending } = useStartRound()
+  const [amount, setAmount] = useState('10')
+  const [leverage, setLeverage] = useState(5)
+  const [price, setPrice] = useState(65434.65)
+
+  // Logic Chart nhảy giá thực tế
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setPrice(p => p + (Math.random() * 4 - 2))
+    }, 1500)
+    return () => clearInterval(timer)
+  }, [])
+
+  return (
+    <div style={{ width: '100%', maxWidth: '1000px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: '20px' }}>
+        {/* Left: Chart */}
+        <div style={{ background: '#111827', borderRadius: '24px', padding: '30px', border: '1px solid #1e293b' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '30px' }}>
+            <div>
+              <h1 style={{ margin: 0, fontSize: '20px', color: '#94a3b8' }}>BTC / USDC</h1>
+              <div style={{ fontSize: '36px', fontWeight: 'bold', color: '#10b981' }}>${price.toFixed(2)}</div>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <p style={{ color: '#64748b', margin: 0 }}>Next Round</p>
+              <span style={{ fontSize: '24px', color: '#f59e0b', fontWeight: 'mono' }}>02:59</span>
+            </div>
           </div>
-          <div style={{ textAlign: 'right' }}>
-            <p style={{ color: '#64748b', margin: 0 }}>Time Remaining</p>
-            <span style={{ fontSize: '20px', color: '#f59e0b' }}>02:59</span>
+          <div style={{ height: '250px', width: '100%', background: 'linear-gradient(180deg, rgba(16, 185, 129, 0.05) 0%, transparent 100%)', borderRadius: '16px', borderBottom: '2px solid #10b981', position: 'relative' }}>
+             <div style={{ position: 'absolute', top: '50%', width: '100%', borderTop: '1px dashed #1e293b' }}></div>
           </div>
         </div>
-        
-        {/* Simple Visual Chart Placeholder */}
-        <div style={{ height: '200px', width: '100%', background: 'linear-gradient(transparent, rgba(16, 185, 129, 0.1))', borderBottom: '2px solid #10b981', position: 'relative', overflow: 'hidden', borderRadius: '12px' }}>
-            <div style={{ position: 'absolute', bottom: '20%', left: 0, width: '100%', height: '2px', background: 'rgba(255,255,255,0.1)', borderStyle: 'dashed' }}></div>
-            <div style={{ position: 'absolute', bottom: '10%', right: '10px', color: '#10b981' }}>● Live</div>
+
+        {/* Right: Betting */}
+        <div style={{ background: '#111827', borderRadius: '24px', padding: '24px', border: '1px solid #1e293b' }}>
+          <div style={{ marginBottom: '20px' }}>
+            <label style={{ color: '#64748b', fontSize: '11px', fontWeight: 'bold' }}>WALLET BALANCE</label>
+            <div style={{ fontSize: '20px', fontWeight: 'bold', marginTop: '4px' }}>{balance?.formatted?.slice(0, 7) || '0.00'} USDC</div>
+          </div>
+
+          <div style={{ marginBottom: '20px' }}>
+            <label style={{ color: '#64748b', fontSize: '11px', fontWeight: 'bold' }}>AMOUNT</label>
+            <input type="number" value={amount} onChange={e => setAmount(e.target.value)} style={{ width: '100%', background: '#0f172a', border: '1px solid #334155', padding: '12px', borderRadius: '12px', color: 'white', marginTop: '4px' }} />
+          </div>
+
+          <div style={{ marginBottom: '30px' }}>
+            <label style={{ color: '#64748b', fontSize: '11px', fontWeight: 'bold', marginBottom: '8px', display: 'block' }}>MARGIN</label>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
+              {[2, 5, 10, 20].map(x => (
+                <button key={x} onClick={() => setLeverage(x)} style={{ padding: '8px', borderRadius: '8px', border: leverage === x ? '1px solid #3b82f6' : '1px solid #334155', background: leverage === x ? 'rgba(59, 130, 246, 0.1)' : 'transparent', color: leverage === x ? '#3b82f6' : '#94a3b8', cursor: 'pointer' }}>x{x}</button>
+              ))}
+            </div>
+          </div>
+
+          <button onClick={() => startRound('BTC')} disabled={isPending} style={{ width: '100%', padding: '16px', borderRadius: '14px', background: '#10b981', color: 'white', border: 'none', fontWeight: 'bold', marginBottom: '10px', cursor: 'pointer' }}>
+            {isPending ? 'Confirming...' : 'Predict UP'}
+          </button>
+          <button onClick={() => startRound('BTC')} disabled={isPending} style={{ width: '100%', padding: '16px', borderRadius: '14px', background: '#ef4444', color: 'white', border: 'none', fontWeight: 'bold', cursor: 'pointer' }}>
+            {isPending ? 'Confirming...' : 'Predict DOWN'}
+          </button>
         </div>
       </div>
-
-      {/* Cột phải: Betting Panel */}
-      <div style={{ background: '#111827', borderRadius: '24px', padding: '24px', border: '1px solid #1e293b' }}>
-        <div style={{ marginBottom: '20px' }}>
-          <label style={{ color: '#64748b', fontSize: '12px', display: 'block', marginBottom: '8px' }}>WALLET BALANCE</label>
-          <div style={{ fontSize: '18px', fontWeight: 'bold' }}>{balance?.formatted || '0.00'} {balance?.symbol}</div>
-        </div>
-
-        <div style={{ marginBottom: '20px' }}>
-          <label style={{ color: '#64748b', fontSize: '12px', display: 'block', marginBottom: '8px' }}>AMOUNT</label>
-          <input 
-            type="number" 
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            style={{ width: '100%', background: '#0f172a', border: '1px solid #334155', padding: '12px', borderRadius: '12px', color: 'white', fontSize: '16px' }}
-          />
-        </div>
-
-        <div style={{ marginBottom: '30px' }}>
-          <label style={{ color: '#64748b', fontSize: '12px', display: 'block', marginBottom: '8px' }}>MARGIN (LEVERAGE)</label>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
-            {[2, 5, 10, 20].map(x => (
-              <button 
-                key={x} 
-                onClick={() => setLeverage(x)}
-                style={{ padding: '8px', borderRadius: '8px', border: leverage === x ? '1px solid #3b82f6' : '1px solid #334155', background: leverage === x ? 'rgba(59, 130, 246, 0.1)' : 'transparent', color: leverage === x ? '#3b82f6' : '#94a3b8', cursor: 'pointer' }}
-              >
-                x{x}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          <button 
-            disabled={!isConnected || isPending}
-            onClick={handleBet}
-            style={{ background: '#10b981', color: 'white', border: 'none', padding: '16px', borderRadius: '14px', fontWeight: 'bold', fontSize: '16px', cursor: 'pointer' }}
-          >
-            {isPending ? 'Confirming...' : 'Predict UP (Long)'}
-          </button>
-          <button 
-            disabled={!isConnected || isPending}
-            onClick={handleBet}
-            style={{ background: '#ef4444', color: 'white', border: 'none', padding: '16px', borderRadius: '14px', fontWeight: 'bold', fontSize: '16px', cursor: 'pointer' }}
-          >
-            {isPending ? 'Confirming...' : 'Predict DOWN (Short)'}
-          </button>
-        </div>
-      </div>
+      <AdminPanel />
     </div>
   )
 }
@@ -113,17 +106,16 @@ export default function App() {
   const [mounted, setMounted] = useState(false)
   useEffect(() => setMounted(true), [])
   if (!mounted) return null
-
   return (
     <WagmiProvider config={config}>
       <QueryClientProvider client={queryClient}>
         <ConnectKitProvider theme="midnight">
-          <div style={{ minHeight: '100vh', background: '#020617', color: 'white', fontFamily: 'Inter, sans-serif' }}>
+          <div style={{ minHeight: '100vh', background: '#020617', color: 'white', fontFamily: 'sans-serif' }}>
             <nav style={{ padding: '20px 40px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #1e293b' }}>
-              <h2 style={{ margin: 0, color: '#3b82f6' }}>ArcPredict Pro</h2>
+              <div style={{ fontWeight: 'bold', fontSize: '20px', color: '#3b82f6' }}>ArcPredict Pro</div>
               <ConnectKitButton />
             </nav>
-            <div style={{ display: 'flex', justifyContent: 'center', marginTop: '40px' }}>
+            <div style={{ display: 'flex', justifyContent: 'center', padding: '40px' }}>
               <TradingInterface />
             </div>
           </div>

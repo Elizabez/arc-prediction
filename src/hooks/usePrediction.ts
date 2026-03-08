@@ -12,7 +12,7 @@ export function useAdminActions() {
       address: USDC_ADDRESS,
       abi: erc20Abi,
       functionName: 'approve',
-      args: [CONTRACT_ADDRESS, parseUnits(amount, 6)], // Chuyển sang 6 decimals
+      args: [CONTRACT_ADDRESS, parseUnits(amount, 6)],
     })
   }
 
@@ -21,7 +21,7 @@ export function useAdminActions() {
       address: CONTRACT_ADDRESS,
       abi: PREDICTION_MARKET_ABI,
       functionName: 'deposit',
-      args: [parseUnits(amount, 6)], // Chuyển sang 6 decimals
+      args: [parseUnits(amount, 6)], // Lỗi nằm ở đây nếu thiếu parseUnits
     })
   }
 
@@ -30,7 +30,7 @@ export function useAdminActions() {
       address: CONTRACT_ADDRESS,
       abi: PREDICTION_MARKET_ABI,
       functionName: 'withdraw',
-      args: [parseUnits(amount, 6)], // Chuyển sang 6 decimals
+      args: [parseUnits(amount, 6)],
     })
   }
 
@@ -42,7 +42,7 @@ export function useStartRound() {
   const chainId = useChainId()
   const { switchChain } = useSwitchChain()
 
-  const startRound = (asset: string, amount: string) => {
+  const startRound = (asset: string) => {
     if (chainId !== arcTestnet.id) {
       switchChain({ chainId: arcTestnet.id })
       return
@@ -51,7 +51,7 @@ export function useStartRound() {
       address: CONTRACT_ADDRESS,
       abi: PREDICTION_MARKET_ABI,
       functionName: 'startRound',
-      args: [asset, parseUnits(amount, 6)], // Gửi kèm số tiền cược
+      args: [asset],
     })
   }
   return { startRound, isPending }

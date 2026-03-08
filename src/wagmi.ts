@@ -1,30 +1,28 @@
-import { http, createConfig } from 'wagmi'
-import { mainnet } from 'wagmi/chains'
-import { getDefaultConfig } from 'connectkit'
+import { createConfig, http } from 'wagmi'
+import { injected } from 'wagmi/connectors'
+import { defineChain } from 'viem'
 
-export const arcTestnet = {
-  id: 570,
+export const arcTestnet = defineChain({
+  id: 5042002,
   name: 'Arc Testnet',
-  nativeCurrency: { name: 'Arc', symbol: 'ARC', decimals: 18 },
+  nativeCurrency: { decimals: 18, name: 'USDC', symbol: 'USDC' },
   rpcUrls: {
     default: { http: ['https://rpc.testnet.arc.network'] },
   },
   blockExplorers: {
-    default: { name: 'ArcScan', url: 'https://explorer.buildonarc.com' },
+    default: { name: 'ArcScan', url: 'https://testnet.arcscan.app' },
   },
-} as const
+  testnet: true,
+})
 
-export const USDC_ADDRESS = '0xcC4f910405A40F9063520A8d88e66e7465A71e09'
-export const CONTRACT_ADDRESS = '0xa2B14137adad4b79a4c76955c7c30b2134fbee10'
+export const USDC_ADDRESS = '0x3600000000000000000000000000000000000000' as `0x${string}`
+export const CONTRACT_ADDRESS = '0xa2B14137adAd4B79A4c76955c7c30B2134Fbee10' as `0x${string}`
 
-export const config = createConfig(
-  getDefaultConfig({
-    chains: [arcTestnet, mainnet],
-    transports: {
-      [arcTestnet.id]: http('https://rpc.testnet.arc.network'),
-      [mainnet.id]: http(),
-    },
-    walletConnectProjectId: 'your-project-id',
-    appName: 'ArcPredict Pro',
-  })
-)
+export const config = createConfig({
+  chains: [arcTestnet],
+  multiInjectedProviderDiscovery: true,
+  connectors: [injected({ shimDisconnect: true })],
+  transports: {
+    [arcTestnet.id]: http('https://rpc.testnet.arc.network'),
+  },
+})

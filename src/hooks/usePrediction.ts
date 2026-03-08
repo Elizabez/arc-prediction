@@ -21,7 +21,7 @@ export function useAdminActions() {
       address: CONTRACT_ADDRESS,
       abi: PREDICTION_MARKET_ABI,
       functionName: 'deposit',
-      args: [parseUnits(amount, 6)], // Lỗi nằm ở đây nếu thiếu parseUnits
+      args: [parseUnits(amount, 6)],
     })
   }
 

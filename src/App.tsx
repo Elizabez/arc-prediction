@@ -52,3 +52,4 @@ export default function App() {
     </ConnectKitProvider></QueryClientProvider></WagmiProvider>
   )
 }
+// Quiz tab added via patch - see QuizPage component

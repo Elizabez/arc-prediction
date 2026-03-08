@@ -12,7 +12,7 @@ export function useAdminActions() {
       address: USDC_ADDRESS,
       abi: erc20Abi,
       functionName: 'approve',
-      args: [CONTRACT_ADDRESS, parseUnits(amount || '0', 6)],
+      args: [parseUnits(amount || '0', 6)],
     })
   }
 
@@ -23,7 +23,8 @@ export function useAdminActions() {
       functionName: 'deposit',
       args: [parseUnits(amount || '0', 6)],
     }, {
-      onSettled: () => { console.log("Giao dịch đã kết thúc hoặc lỗi, nút đã mở khóa") }
+      // Ép dApp mở khóa nút bấm ngay khi ví trả về kết quả (dù lỗi hay thành công)
+      onSettled: () => { console.log("UI Unlocked") }
     })
   }
 
@@ -45,6 +46,8 @@ export function useStartRound() {
       abi: PREDICTION_MARKET_ABI,
       functionName: 'startRound',
       args: [asset],
+    }, {
+      onSettled: () => { console.log("Predict Button Unlocked") }
     })
   }
   return { startRound, isPending }

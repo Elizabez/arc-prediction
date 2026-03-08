@@ -14,8 +14,8 @@ export const arcTestnet = {
   },
 } as const
 
-export const CONTRACT_ADDRESS = '0xa2B14137adad4b79a4c76955c7c30b2134fbee10'
 export const USDC_ADDRESS = '0xcC4f910405A40F9063520A8d88e66e7465A71e09'
+export const CONTRACT_ADDRESS = '0xa2B14137adad4b79a4c76955c7c30b2134fbee10'
 
 export const config = createConfig(
   getDefaultConfig({

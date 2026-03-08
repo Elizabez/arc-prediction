@@ -1,12 +1,12 @@
 import { createConfig, http } from 'wagmi'
-import { injected } from 'wagmi/connectors'
 import { defineChain } from 'viem'
+import { injected } from 'wagmi/connectors'
 
 export const arcTestnet = defineChain({
   id: 5042002,
   name: 'Arc Testnet',
   nativeCurrency: { 
-    decimals: 18, // Tài liệu Arc yêu cầu 18 cho Native Gas
+    decimals: 18, 
     name: 'USDC', 
     symbol: 'USDC' 
   },
@@ -23,7 +23,6 @@ export const CONTRACT_ADDRESS = '0xa2B14137adAd4B79A4c76955c7c30B2134Fbee10'
 
 export const config = createConfig({
   chains: [arcTestnet],
-  multiInjectedProviderDiscovery: true,
-  connectors: [injected({ shimDisconnect: true })],
+  connectors: [injected()],
   transports: { [arcTestnet.id]: http() },
 })

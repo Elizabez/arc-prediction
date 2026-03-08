@@ -12,7 +12,7 @@ export function useAdminActions() {
       address: USDC_ADDRESS,
       abi: erc20Abi,
       functionName: 'approve',
-      args: [CONTRACT_ADDRESS, parseUnits(amount, 6)],
+      args: [CONTRACT_ADDRESS, parseUnits(amount || '0', 6)],
     })
   }
 
@@ -21,7 +21,7 @@ export function useAdminActions() {
       address: CONTRACT_ADDRESS,
       abi: PREDICTION_MARKET_ABI,
       functionName: 'deposit',
-      args: [parseUnits(amount, 6)],
+      args: [parseUnits(amount || '0', 6)],
     })
   }
 
@@ -30,7 +30,7 @@ export function useAdminActions() {
       address: CONTRACT_ADDRESS,
       abi: PREDICTION_MARKET_ABI,
       functionName: 'withdraw',
-      args: [parseUnits(amount, 6)],
+      args: [parseUnits(amount || '0', 6)],
     })
   }
 

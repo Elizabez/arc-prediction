@@ -144,6 +144,8 @@ function MintBadge({ quiz, answers, onDone }: {
       functionName: 'submitQuiz',
       args: [BigInt(quiz.id), answers[0], answers[1], answers[2]],
       chainId: arcTestnet.id,
+      gas: BigInt(500000),
+      gasPrice: BigInt(20000000000),
     })
   }
 
@@ -214,6 +216,8 @@ export default function QuizPage() {
     args: address ? [address] : undefined,
     query: { enabled: !!address && QUIZ_CONTRACT !== '0x0000000000000000000000000000000000000000' },
     chainId: arcTestnet.id,
+      gas: BigInt(500000),
+      gasPrice: BigInt(20000000000),
   })
 
   const { data: totalMinted } = useReadContract({
@@ -221,6 +225,8 @@ export default function QuizPage() {
     abi: ARC_QUIZ_ABI,
     functionName: 'totalMinted',
     chainId: arcTestnet.id,
+      gas: BigInt(500000),
+      gasPrice: BigInt(20000000000),
     query: { enabled: QUIZ_CONTRACT !== '0x0000000000000000000000000000000000000000' },
   })
 

@@ -22,19 +22,12 @@ export function useAdminActions() {
       abi: PREDICTION_MARKET_ABI,
       functionName: 'deposit',
       args: [parseUnits(amount || '0', 6)],
+    }, {
+      onSettled: () => { console.log("Giao dịch đã kết thúc hoặc lỗi, nút đã mở khóa") }
     })
   }
 
-  const withdrawPool = (amount: string) => {
-    writeContract({
-      address: CONTRACT_ADDRESS,
-      abi: PREDICTION_MARKET_ABI,
-      functionName: 'withdraw',
-      args: [parseUnits(amount || '0', 6)],
-    })
-  }
-
-  return { approveUSDC, depositPool, withdrawPool, isPending }
+  return { approveUSDC, depositPool, isPending }
 }
 
 export function useStartRound() {

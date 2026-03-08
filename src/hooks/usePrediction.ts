@@ -1,24 +1,64 @@
-import { useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
+import { useWriteContract, useWaitForTransactionReceipt, useReadContract, useChainId, useSwitchChain } from 'wagmi'
 import { parseUnits, formatUnits } from 'viem'
-import { CONTRACT_ADDRESS, USDC_ADDRESS } from '../wagmi'
+import { CONTRACT_ADDRESS, arcTestnet, USDC_ADDRESS } from '../wagmi'
 import { PREDICTION_MARKET_ABI } from '../abi/contracts'
+import { erc20Abi } from 'viem'
+
+export function useAdminActions() {
+  const { writeContract, data: hash, isPending } = useWriteContract()
+  
+  // Hàm Approve: Cho phép Contract rút USDC từ ví của Vinh
+  const approveUSDC = (amount: string) => {
+    writeContract({
+      address: USDC_ADDRESS,
+      abi: erc20Abi,
+      functionName: 'approve',
+      args: [CONTRACT_ADDRESS, parseUnits(amount, 6)],
+    })
+  }
+
+  // Hàm Deposit: Nạp USDC vào Pool
+  const depositPool = (amount: string) => {
+    writeContract({
+      address: CONTRACT_ADDRESS,
+      abi: PREDICTION_MARKET_ABI,
+      functionName: 'deposit', // Tên hàm giả định trong Contract của bạn
+      args: [parseUnits(amount, 6)],
+    })
+  }
+
+  // Hàm Withdraw: Rút USDC về ví (Chỉ Admin mới chạy được)
+  const withdrawPool = (amount: string) => {
+    writeContract({
+      address: CONTRACT_ADDRESS,
+      abi: PREDICTION_MARKET_ABI,
+      functionName: 'withdraw', // Tên hàm giả định trong Contract của bạn
+      args: [parseUnits(amount, 6)],
+    })
+  }
+
+  return { approveUSDC, depositPool, withdrawPool, isPending, hash }
+}
 
 export function useStartRound() {
-  const { writeContract, data: hash, isPending, error } = useWriteContract()
-  const { isSuccess } = useWaitForTransactionReceipt({ hash })
+  const { writeContract, data: hash, isPending } = useWriteContract()
+  const chainId = useChainId()
+  const { switchChain } = useSwitchChain()
 
   const startRound = (asset: string) => {
+    if (chainId !== arcTestnet.id) {
+      switchChain({ chainId: arcTestnet.id })
+      return
+    }
     writeContract({
       address: CONTRACT_ADDRESS,
       abi: PREDICTION_MARKET_ABI,
       functionName: 'startRound',
       args: [asset],
-      // Arc yêu cầu Base Fee ~160 Gwei. Ta set dư ra một chút để mượt.
-      gasPrice: parseUnits('200', 9), 
+      gasPrice: parseUnits('200', 9),
     })
   }
-
-  return { startRound, isPending, isSuccess, error }
+  return { startRound, isPending }
 }
 
 export function useNextRoundId() {
@@ -28,6 +68,3 @@ export function useNextRoundId() {
     functionName: 'nextRoundId',
   })
 }
-
-// Lưu ý: USDC token (ERC20) vẫn dùng 6 decimals cho số dư
-export const formatUsdc = (value: bigint) => formatUnits(value, 6)

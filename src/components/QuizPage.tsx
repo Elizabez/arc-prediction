@@ -3,7 +3,6 @@ import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadCont
 import { QUIZZES, ARC_QUIZ_ABI, type QuizData } from './QuizData'
 import { arcTestnet } from '../wagmi'
 
-// UPDATE THIS after deploying ArcQuiz.sol
 const QUIZ_CONTRACT = (import.meta.env['VITE_QUIZ_CONTRACT'] ?? '0x0000000000000000000000000000000000000000') as `0x${string}`
 
 type QuizState = 'list' | 'playing' | 'result'
@@ -33,7 +32,7 @@ function QuizPlayer({
   onFail: () => void
   onBack: () => void
 }) {
-  const [step, setStep] = useState(0)         // 0,1,2 = question index
+  const [step, setStep] = useState(0)
   const [answers, setAnswers] = useState<number[]>([])
   const [selected, setSelected] = useState<number | null>(null)
   const [revealed, setRevealed] = useState(false)
@@ -58,7 +57,6 @@ function QuizPlayer({
       setSelected(null)
       setRevealed(false)
     } else {
-      // Check all answers
       const allCorrect = newAnswers.every(
         (ans, i) => ans === quiz.questions[i].correctIndex
       )
@@ -75,7 +73,6 @@ function QuizPlayer({
   return (
     <div className="quiz-player">
       <button className="quiz-back" onClick={onBack}>← Back</button>
-
       <div className="quiz-header">
         <span className="quiz-emoji">{quiz.emoji}</span>
         <h2>{quiz.title}</h2>
@@ -85,12 +82,10 @@ function QuizPlayer({
           ))}
         </div>
       </div>
-
       <div className="quiz-question">
         <div className="question-num">Question {step + 1} / 3</div>
         <div className="question-text">{question.question}</div>
       </div>
-
       <div className="quiz-options">
         {question.options.map((opt, idx) => {
           let cls = 'quiz-option'
@@ -108,13 +103,11 @@ function QuizPlayer({
           )
         })}
       </div>
-
       {!revealed && (
         <button className="btn-confirm" onClick={handleConfirm} disabled={selected === null}>
           Confirm Answer
         </button>
       )}
-
       {revealed && (
         <div className="reveal-feedback">
           <div className={`feedback-msg ${isCorrect ? 'correct' : 'wrong'}`}>
@@ -154,23 +147,19 @@ function MintBadge({ quiz, answers, onDone }: {
       <div className="mint-emoji">🎉</div>
       <h2 className="mint-title">Perfect Score!</h2>
       <p className="mint-sub">You answered all 3 questions correctly in <strong>{quiz.title}</strong>!</p>
-
       <div className="mint-badge-preview">
         <div className="badge-preview-emoji">{quiz.emoji}</div>
         <div className="badge-preview-name">Arc Quiz Badge #{quiz.id}</div>
         <div className="badge-preview-sub">Soulbound NFT · Non-transferable</div>
       </div>
-
       {!isSuccess && (
         <button className="btn-mint" onClick={handleMint} disabled={isPending || isConfirming}>
           {isPending ? 'Confirm in wallet…' : isConfirming ? 'Minting on-chain…' : '⛏ Mint Badge On-Chain'}
         </button>
       )}
-
       {error && (
         <div className="mint-error">Error: {error.message.slice(0, 80)}</div>
       )}
-
       {isSuccess && (
         <div className="mint-success">
           <div className="success-icon">✓</div>
@@ -208,7 +197,6 @@ export default function QuizPage() {
   const [correctAnswers, setCorrectAnswers] = useState<[number, number, number] | null>(null)
   const [failed, setFailed] = useState(false)
 
-  // Get user progress from contract
   const { data: progress, refetch } = useReadContract({
     address: QUIZ_CONTRACT,
     abi: ARC_QUIZ_ABI,
@@ -216,18 +204,15 @@ export default function QuizPage() {
     args: address ? [address] : undefined,
     query: { enabled: !!address && QUIZ_CONTRACT !== '0x0000000000000000000000000000000000000000' },
     chainId: arcTestnet.id,
-      gas: BigInt(500000),
-      gasPrice: BigInt(20000000000),
   })
 
-  const { data: totalMinted } = useReadContract({
+  const { data: myBadgeCount } = useReadContract({
     address: QUIZ_CONTRACT,
     abi: ARC_QUIZ_ABI,
-    functionName: 'totalMinted',
+    functionName: 'balanceOf',
+    args: address ? [address] : undefined,
+    query: { enabled: !!address && QUIZ_CONTRACT !== '0x0000000000000000000000000000000000000000' },
     chainId: arcTestnet.id,
-      gas: BigInt(500000),
-      gasPrice: BigInt(20000000000),
-    query: { enabled: QUIZ_CONTRACT !== '0x0000000000000000000000000000000000000000' },
   })
 
   const progressArr = progress as boolean[] | undefined
@@ -269,8 +254,8 @@ export default function QuizPage() {
               </div>
               <div className="qstat-divider" />
               <div className="qstat">
-                <span className="qstat-val">{totalMinted?.toString() ?? '—'}</span>
-                <span className="qstat-label">Badges Minted</span>
+                <span className="qstat-val">{myBadgeCount?.toString() ?? '—'}</span>
+                <span className="qstat-label">My Badges</span>
               </div>
               <div className="qstat-divider" />
               <div className="qstat">

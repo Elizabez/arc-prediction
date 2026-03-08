@@ -16,12 +16,13 @@ export default function DashboardPage() {
     chainId: arcTestnet.id,
   })
 
-  const { data: totalMinted } = useReadContract({
+  const { data: userBadgeCount } = useReadContract({
     address: QUIZ_CONTRACT,
     abi: ARC_QUIZ_ABI,
-    functionName: 'totalMinted',
+    functionName: 'balanceOf',
+    args: address ? [address] : undefined,
+    query: { enabled: !!address && QUIZ_CONTRACT !== '0x0000000000000000000000000000000000000000' },
     chainId: arcTestnet.id,
-    query: { enabled: QUIZ_CONTRACT !== '0x0000000000000000000000000000000000000000' },
   })
 
   const progressArr = progress as boolean[] | undefined
@@ -99,8 +100,8 @@ export default function DashboardPage() {
           </div>
           <div className="dash-stat">
             <div className="dash-stat-icon">🪙</div>
-            <div className="dash-stat-val">{totalMinted?.toString() ?? '—'}</div>
-            <div className="dash-stat-label">Total Badges</div>
+            <div className="dash-stat-val">{userBadgeCount?.toString() ?? '—'}</div>
+            <div className="dash-stat-label">My Badges</div>
           </div>
         </div>
       </div>

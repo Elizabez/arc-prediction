@@ -1,20 +1,31 @@
-import { createConfig, http } from 'wagmi'
-import { defineChain } from 'viem'
-import { injected } from 'wagmi/connectors'
+import { http, createConfig } from 'wagmi'
+import { mainnet } from 'wagmi/chains'
+import { getDefaultConfig } from 'connectkit'
 
-export const arcTestnet = defineChain({
-  id: 5042002,
+export const arcTestnet = {
+  id: 570,
   name: 'Arc Testnet',
-  nativeCurrency: { decimals: 18, name: 'USDC', symbol: 'USDC' },
-  rpcUrls: { default: { http: ['https://rpc.testnet.arc.network'] } },
-  blockExplorers: { default: { name: 'ArcScan', url: 'https://testnet.arcscan.app' } },
-})
+  nativeCurrency: { name: 'Arc', symbol: 'ARC', decimals: 18 },
+  rpcUrls: {
+    default: { http: ['https://rpc.buildonarc.com'] },
+  },
+  blockExplorers: {
+    default: { name: 'ArcScan', url: 'https://explorer.buildonarc.com' },
+  },
+} as const
 
-export const USDC_ADDRESS = '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238'
-export const CONTRACT_ADDRESS = '0xa2B14137adAd4B79A4c76955c7c30B2134Fbee10'
+// ĐỊA CHỈ SMART CONTRACT - Vinh kiểm tra lại địa chỉ này nhé
+export const CONTRACT_ADDRESS = '0xa2B14137adad4b79a4c76955c7c30b2134fbee10'
+export const USDC_ADDRESS = '0xcC4f910405A40F9063520A8d88e66e7465A71e09' // Địa chỉ USDC trên Arc
 
-export const config = createConfig({
-  chains: [arcTestnet],
-  connectors: [injected()],
-  transports: { [arcTestnet.id]: http() },
-})
+export const config = createConfig(
+  getDefaultConfig({
+    chains: [arcTestnet, mainnet],
+    transports: {
+      [arcTestnet.id]: http(),
+      [mainnet.id]: http(),
+    },
+    walletConnectProjectId: 'your-project-id',
+    appName: 'ArcPredict Pro',
+  })
+)

@@ -56,11 +56,3 @@ export function useStartRound() {
   }
   return { startRound, isPending }
 }
-
-export function useNextRoundId() {
-  return useReadContract({
-    address: CONTRACT_ADDRESS,
-    abi: PREDICTION_MARKET_ABI,
-    functionName: 'nextRoundId',
-  })
-}

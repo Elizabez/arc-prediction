@@ -1,12 +1,12 @@
 import { useAccount, useReadContract } from 'wagmi'
-import { TEMPO_QUIZ_ABI, TEMPO_QUIZZES, getUnlockedCount, formatUnlockDate } from './TempoQuizData'
+import { TEMPO_QUIZ_ABI, TEMPO_QUIZZES, getTempoUnlockedCount, formatTempoUnlockDate } from './TempoQuizData'
 import { tempoTestnet } from '../wagmi'
 
 const TEMPO_QUIZ_CONTRACT = (import.meta.env['VITE_TEMPO_QUIZ_CONTRACT'] ?? '0x0000000000000000000000000000000000000000') as `0x${string}`
 
 export default function TempoDashboardPage() {
   const { address, isConnected } = useAccount()
-  const unlockedCount = getUnlockedCount()
+  const unlockedCount = getTempoUnlockedCount()
 
   const { data: progressData } = useReadContract({
     address: TEMPO_QUIZ_CONTRACT,
@@ -119,7 +119,7 @@ export default function TempoDashboardPage() {
               Next quiz unlocks: Quiz {unlockedCount + 1} — {TEMPO_QUIZZES[unlockedCount].title}
             </div>
             <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
-              Available on {formatUnlockDate(unlockedCount + 1)}
+              Available on {formatTempoUnlockDate(unlockedCount + 1)}
             </div>
           </div>
         </div>
@@ -149,7 +149,7 @@ export default function TempoDashboardPage() {
                     fontSize: '9px', color: '#475569', fontWeight: 700,
                     background: '#1e293b', borderRadius: '4px', padding: '2px 5px',
                   }}>
-                    {formatUnlockDate(quiz.id)}
+                    {formatTempoUnlockDate(quiz.id)}
                   </div>
                 )}
                 <div style={{ fontSize: '24px', marginBottom: '6px' }}>

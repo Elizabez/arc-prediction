@@ -3,7 +3,7 @@ import { useAccount, useReadContract, useWriteContract, useWaitForTransactionRec
 import { TEMPO_QUIZ_ABI, TEMPO_QUIZZES, getTempoUnlockedCount, type QuizData } from './TempoQuizData'
 import { tempoTestnet } from '../wagmi'
 
-const TEMPO_QUIZ_CONTRACT = (import.meta.env['VITE_TEMPO_QUIZ_CONTRACT'] ?? '0x0000000000000000000000000000000000000000') as `0x${string}`
+const TEMPO_QUIZ_CONTRACT = (import.meta.env['VITE_TEMPO_QUIZ_CONTRACT'] ?? '0x0000000000000000000000000000000000000000').trim() as `0x${string}`
 const APP_URL = 'https://testnet-quiz.vercel.app'
 const ACC = '#8b5cf6'
 

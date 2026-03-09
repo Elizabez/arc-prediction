@@ -1,5 +1,5 @@
 import { useAccount, useReadContract } from 'wagmi'
-import { ARC_QUIZ_ABI, QUIZZES } from './QuizData'
+import { ARC_QUIZ_ABI, ARC_QUIZZES } from './ArcQuizData'
 import { arcTestnet } from '../wagmi'
 
 const QUIZ_CONTRACT = (import.meta.env['VITE_QUIZ_CONTRACT'] ?? '0x0000000000000000000000000000000000000000') as `0x${string}`
@@ -26,7 +26,7 @@ export default function DashboardPage() {
 
   const progressArr = progress as boolean[] | undefined
   const completedCount = progressArr ? progressArr.filter(Boolean).length : 0
-  const totalQuizzes = QUIZZES.length
+  const totalQuizzes = ARC_QUIZZES.length
   const completePct = Math.round((completedCount / totalQuizzes) * 100)
 
   const achievements = [
@@ -145,7 +145,7 @@ export default function DashboardPage() {
           </div>
         ) : (
           <div className="dash-badges-grid">
-            {QUIZZES.map((quiz, i) => {
+            {ARC_QUIZZES.map((quiz, i) => {
               const done = progressArr ? progressArr[i] : false
               return (
                 <div key={quiz.id} className={`dash-badge-item ${done ? 'earned' : 'locked'}`}>

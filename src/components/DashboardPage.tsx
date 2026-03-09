@@ -250,7 +250,6 @@ function MintBadge({ quiz, answers, onDone }: {
       address: QUIZ_CONTRACT, abi: ARC_QUIZ_ABI,
       functionName: 'submitQuiz',
       args: [BigInt(quiz.id), answers.map(a => a as number)],
-      chainId: arcTestnet.id,
     })
   }
 
@@ -565,36 +564,37 @@ export default function DashboardPage() {
             </div>
           </div>
 
+        </div>
+
+        {/* RIGHT — Referral + Project Hub */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+
           {/* Referral */}
           {isConnected && (
-            <div style={{ background: '#0d1424', border: '1px solid #1e293b', borderRadius: '16px', padding: '22px' }}>
-              <h2 style={{ fontSize: '15px', fontWeight: 800, color: '#e2e8f0', margin: '0 0 6px' }}>🔗 Referral Link</h2>
-              <p style={{ fontSize: '13px', color: '#64748b', margin: '0 0 14px' }}>Invite friends to learn & earn Soulbound badges</p>
-              <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
-                <div style={{ flex: 1, background: '#1e293b', border: '1px solid #334155', borderRadius: '10px', padding: '10px 14px', fontSize: '12px', color: '#94a3b8', fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <div style={{ background: '#0d1424', border: '1px solid #1e293b', borderRadius: '16px', padding: '20px' }}>
+              <h2 style={{ fontSize: '14px', fontWeight: 800, color: '#e2e8f0', margin: '0 0 4px', display: 'flex', alignItems: 'center', gap: '6px' }}>🔗 Referral Link</h2>
+              <p style={{ fontSize: '12px', color: '#64748b', margin: '0 0 12px' }}>Invite friends — earn Soulbound badges together</p>
+              <div style={{ display: 'flex', gap: '7px', marginBottom: '8px' }}>
+                <div style={{ flex: 1, background: '#131c2e', border: '1px solid #1e293b', borderRadius: '8px', padding: '8px 12px', fontSize: '11px', color: '#94a3b8', fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {refUrl}
                 </div>
                 <button onClick={copyRef} style={{
                   background: copied ? '#10b98120' : '#1e293b', border: `1px solid ${copied ? '#10b981' : '#334155'}`,
-                  borderRadius: '10px', color: copied ? '#10b981' : '#94a3b8',
-                  cursor: 'pointer', fontWeight: 700, fontSize: '12px', padding: '10px 16px', whiteSpace: 'nowrap',
+                  borderRadius: '8px', color: copied ? '#10b981' : '#94a3b8',
+                  cursor: 'pointer', fontWeight: 700, fontSize: '11px', padding: '8px 14px', whiteSpace: 'nowrap',
                 }}>
                   {copied ? '✓ Copied' : 'Copy'}
                 </button>
               </div>
               <button onClick={shareOnX} style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-                width: '100%', background: '#000', border: '1px solid #333',
-                borderRadius: '10px', color: '#fff', cursor: 'pointer', fontWeight: 700, fontSize: '14px', padding: '12px',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '7px',
+                width: '100%', background: '#000', border: '1px solid #222',
+                borderRadius: '8px', color: '#fff', cursor: 'pointer', fontWeight: 700, fontSize: '13px', padding: '10px',
               }}>
                 <XIcon /> Share on X
               </button>
             </div>
           )}
-        </div>
-
-        {/* RIGHT — Project Hub */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
 
           <div style={{ background: '#0d1424', border: '1px solid #1e293b', borderRadius: '16px', padding: '20px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { WagmiProvider, useAccount, useChainId, useSwitchChain } from 'wagmi'
+import { WagmiProvider, useAccount, useBalance, useChainId, useSwitchChain } from 'wagmi'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ConnectKitProvider, ConnectKitButton } from 'connectkit'
 import { config, arcTestnet, tempoTestnet } from './wagmi'
@@ -14,8 +14,27 @@ const CHAINS = [
   { id: tempoTestnet.id, name: 'Tempo Testnet', emoji: '🎵', color: '#8b5cf6' },
 ]
 
+// ── Logo icon — quiz mark inside rounded hex ───────────────────────
+const TQIcon = ({ color }: { color: string }) => (
+  <svg width="34" height="34" viewBox="0 0 34 34" fill="none">
+    <rect x="1" y="1" width="32" height="32" rx="9" fill={`${color}18`} stroke={color} strokeWidth="1.5"/>
+    {/* Question mark arc */}
+    <path
+      d="M13.5 13.8C13.5 11.37 15.51 9.4 18 9.4C20.49 9.4 22.5 11.37 22.5 13.8C22.5 15.72 21.26 17.36 19.5 17.96L18 19.6"
+      stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
+    />
+    {/* Dot */}
+    <circle cx="18" cy="23.5" r="1.4" fill={color}/>
+    {/* Small circuit dots for tech feel */}
+    <circle cx="6" cy="6" r="1" fill={color} fillOpacity="0.3"/>
+    <circle cx="28" cy="6" r="1" fill={color} fillOpacity="0.3"/>
+    <circle cx="6" cy="28" r="1" fill={color} fillOpacity="0.3"/>
+    <circle cx="28" cy="28" r="1" fill={color} fillOpacity="0.3"/>
+  </svg>
+)
+
 function AppInner() {
-  const { isConnected } = useAccount()
+  const { isConnected, address } = useAccount()
   const chainId = useChainId()
   const { switchChain } = useSwitchChain()
   const [showChainMenu, setShowChainMenu] = useState(false)
@@ -27,20 +46,52 @@ function AppInner() {
   const activeChain = CHAINS.find(c => c.id === chainId)
   const accentColor = isArc ? '#3b82f6' : isTempo ? '#8b5cf6' : '#64748b'
 
+  // Native token balance
+  const { data: balance } = useBalance({ address: address ?? undefined })
+  const balText = balance
+    ? `${parseFloat(balance.formatted).toFixed(2)} ${balance.symbol}`
+    : null
+
   return (
     <div style={{ minHeight: '100vh', background: '#0a0f1a', color: '#e2e8f0', fontFamily: 'sans-serif' }}>
 
       {/* Navbar */}
       <nav style={{
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        padding: '14px 28px', borderBottom: '1px solid #1e293b',
+        padding: '10px 24px', borderBottom: '1px solid #1e293b',
         background: '#0d1424', position: 'sticky', top: 0, zIndex: 100,
       }}>
-        <span style={{ fontSize: '18px', fontWeight: 900, color: accentColor, letterSpacing: '-0.5px' }}>
-          ◈ OnChainGM
-        </span>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        {/* Logo */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '9px' }}>
+          <TQIcon color={accentColor} />
+          <div style={{ lineHeight: 1 }}>
+            <div style={{ fontSize: '9px', fontWeight: 800, color: '#475569', letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: '2px' }}>
+              Testnet
+            </div>
+            <div style={{ fontSize: '17px', fontWeight: 900, color: accentColor, letterSpacing: '-0.5px' }}>
+              Quiz
+            </div>
+          </div>
+        </div>
+
+        {/* Right side */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+
+          {/* Native balance */}
+          {isConnected && balText && (
+            <div style={{
+              background: '#131c2e', border: `1px solid ${accentColor}30`,
+              borderRadius: '8px', padding: '5px 12px',
+              fontSize: '12px', fontWeight: 700, color: '#e2e8f0',
+              fontFamily: 'monospace', letterSpacing: '0.02em',
+              display: 'flex', alignItems: 'center', gap: '5px',
+            }}>
+              <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: accentColor, display: 'inline-block', flexShrink: 0 }} />
+              {balText}
+            </div>
+          )}
+
           {/* Chain switcher */}
           <div style={{ position: 'relative' }}>
             <button onClick={() => setShowChainMenu(!showChainMenu)} style={{
@@ -84,11 +135,16 @@ function AppInner() {
       {/* Content */}
       {!isConnected ? (
         <div style={{ maxWidth: '520px', margin: '100px auto', padding: '0 24px', textAlign: 'center' }}>
-          <div style={{ fontSize: '56px', marginBottom: '20px' }}>◈</div>
-          <h1 style={{ fontSize: '32px', fontWeight: 900, marginBottom: '12px' }}>OnChainGM Quiz</h1>
-          <p style={{ color: '#64748b', marginBottom: '32px', lineHeight: 1.6 }}>
-            Learn about Arc & Tempo blockchains.<br />
-            Answer correctly → earn Soulbound NFT badges.
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px' }}>
+            <TQIcon color="#3b82f6" />
+          </div>
+          <h1 style={{ fontSize: '32px', fontWeight: 900, marginBottom: '8px' }}>Testnet Quiz</h1>
+          <p style={{ color: '#64748b', fontSize: '14px', marginBottom: '8px' }}>
+            <span style={{ color: '#3b82f6', fontWeight: 700 }}>Arc</span> &amp; <span style={{ color: '#8b5cf6', fontWeight: 700 }}>Tempo</span> blockchain knowledge
+          </p>
+          <p style={{ color: '#475569', marginBottom: '32px', lineHeight: 1.7, fontSize: '14px' }}>
+            Answer questions correctly → earn <strong style={{ color: '#e2e8f0' }}>Soulbound NFT badges</strong> on-chain.<br />
+            Free to play · Non-transferable
           </p>
           <div style={{ display: 'flex', justifyContent: 'center' }}>
             <ConnectKitButton />

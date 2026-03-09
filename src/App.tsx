@@ -3,8 +3,6 @@ import { WagmiProvider, useAccount, useChainId, useSwitchChain } from 'wagmi'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ConnectKitProvider, ConnectKitButton } from 'connectkit'
 import { config, arcTestnet, tempoTestnet } from './wagmi'
-import QuizPage from './components/QuizPage'
-import TempoQuizPage from './components/TempoQuizPage'
 import DashboardPage from './components/DashboardPage'
 import TempoDashboardPage from './components/TempoDashboardPage'
 import './components/dashboard.css'
@@ -20,7 +18,6 @@ function AppInner() {
   const { isConnected } = useAccount()
   const chainId = useChainId()
   const { switchChain } = useSwitchChain()
-  const [page, setPage] = useState<'dashboard' | 'quiz'>('dashboard')
   const [showChainMenu, setShowChainMenu] = useState(false)
 
   const isArc   = chainId === arcTestnet.id
@@ -39,29 +36,9 @@ function AppInner() {
         padding: '14px 28px', borderBottom: '1px solid #1e293b',
         background: '#0d1424', position: 'sticky', top: 0, zIndex: 100,
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
-          <span style={{ fontSize: '18px', fontWeight: 900, color: accentColor, letterSpacing: '-0.5px' }}>
-            ◈ OnChainGM
-          </span>
-
-          <button onClick={() => setPage('quiz')} style={{
-            background: page === 'quiz' ? `${accentColor}20` : 'none',
-            border: page === 'quiz' ? `1px solid ${accentColor}50` : '1px solid transparent',
-            borderRadius: '8px', color: page === 'quiz' ? accentColor : '#64748b',
-            cursor: 'pointer', fontWeight: 700, fontSize: '13px', padding: '6px 14px',
-          }}>
-            🧠 Quiz
-          </button>
-
-          <button onClick={() => setPage('dashboard')} style={{
-            background: page === 'dashboard' ? `${accentColor}20` : 'none',
-            border: page === 'dashboard' ? `1px solid ${accentColor}50` : '1px solid transparent',
-            borderRadius: '8px', color: page === 'dashboard' ? accentColor : '#64748b',
-            cursor: 'pointer', fontWeight: 700, fontSize: '13px', padding: '6px 14px',
-          }}>
-            📊 Dashboard
-          </button>
-        </div>
+        <span style={{ fontSize: '18px', fontWeight: 900, color: accentColor, letterSpacing: '-0.5px' }}>
+          ◈ OnChainGM
+        </span>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           {/* Chain switcher */}
@@ -104,7 +81,7 @@ function AppInner() {
         </div>
       </nav>
 
-      {/* Pages */}
+      {/* Content */}
       {!isConnected ? (
         <div style={{ maxWidth: '520px', margin: '100px auto', padding: '0 24px', textAlign: 'center' }}>
           <div style={{ fontSize: '56px', marginBottom: '20px' }}>◈</div>
@@ -136,10 +113,8 @@ function AppInner() {
         </div>
       ) : (
         <>
-          {page === 'dashboard' && isArc   && <DashboardPage />}
-          {page === 'dashboard' && isTempo && <TempoDashboardPage />}
-          {page === 'quiz'      && isArc   && <QuizPage />}
-          {page === 'quiz'      && isTempo && <TempoQuizPage />}
+          {isArc   && <DashboardPage />}
+          {isTempo && <TempoDashboardPage />}
         </>
       )}
 

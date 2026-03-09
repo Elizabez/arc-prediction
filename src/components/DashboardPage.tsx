@@ -1,12 +1,13 @@
 import { useState, useEffect, useRef } from 'react'
-import { useAccount, useReadContract } from 'wagmi'
-import { ARC_QUIZ_ABI, ARC_QUIZZES, getArcUnlockedCount } from './ArcQuizData'
+import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
+import { ARC_QUIZ_ABI, ARC_QUIZZES, getArcUnlockedCount, type QuizData } from './ArcQuizData'
 import { arcTestnet } from '../wagmi'
 
 const QUIZ_CONTRACT = (import.meta.env['VITE_QUIZ_CONTRACT'] ?? '0x0000000000000000000000000000000000000000') as `0x${string}`
 const APP_URL = 'https://testnet-quiz.vercel.app'
+const ACC = '#3b82f6'
 
-// ── Badge tier by quiz id ──────────────────────────────────────────
+// ── Badge tiers ────────────────────────────────────────────────────
 const BADGE_TIERS = [
   { maxId: 4,  label: 'Bronze',  color: '#cd7f32', bg: '#cd7f3214', border: '#cd7f3260' },
   { maxId: 8,  label: 'Silver',  color: '#94a3b8', bg: '#94a3b814', border: '#94a3b860' },
@@ -17,7 +18,7 @@ function getBadgeTier(quizId: number) {
   return BADGE_TIERS.find(t => quizId <= t.maxId)!
 }
 
-// ── User overall level ─────────────────────────────────────────────
+// ── User levels ────────────────────────────────────────────────────
 const USER_LEVELS = [
   { min: 0,  max: 1,        label: 'Newcomer', color: '#64748b', icon: '🌱' },
   { min: 1,  max: 4,        label: 'Beginner', color: '#cd7f32', icon: '🥉' },
@@ -30,7 +31,7 @@ function getUserLevel(count: number) {
   return USER_LEVELS.find(l => count >= l.min && count < l.max) ?? USER_LEVELS[USER_LEVELS.length - 1]
 }
 
-// ── SVG Icons ──────────────────────────────────────────────────────
+// ── Icons ──────────────────────────────────────────────────────────
 const XIcon = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
     <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.746l7.73-8.835L1.254 2.25H8.08l4.259 5.63L18.244 2.25zm-1.161 17.52h1.833L7.084 4.126H5.117L17.083 19.77z" />
@@ -47,7 +48,292 @@ const GlobeIcon = () => (
   </svg>
 )
 
-// ── Twitter Timeline Embed ─────────────────────────────────────────
+// ── Quiz Player ────────────────────────────────────────────────────
+function QuizPlayer({ quiz, onPass, onBack }: {
+  quiz: QuizData; onPass: (answers: number[]) => void; onBack: () => void
+}) {
+  const [step, setStep] = useState(0)
+  const [answers, setAnswers] = useState<number[]>([])
+  const [selected, setSelected] = useState<number | null>(null)
+  const [revealed, setRevealed] = useState(false)
+
+  const question = quiz.questions[step]
+  const total = quiz.questions.length
+  const isLast = step === total - 1
+  const isCorrect = revealed && selected === question.correctIndex
+  const tier = getBadgeTier(quiz.id)
+  const barPct = Math.round(((step + (revealed && isCorrect ? 1 : 0)) / total) * 100)
+
+  function confirm() {
+    if (selected === null) return
+    setRevealed(true)
+  }
+
+  function next() {
+    if (selected === null) return
+    const newAnswers = [...answers, selected]
+    if (selected !== question.correctIndex) {
+      setStep(0); setAnswers([]); setSelected(null); setRevealed(false)
+      return
+    }
+    if (isLast) {
+      onPass(newAnswers)
+    } else {
+      setAnswers(newAnswers); setStep(step + 1); setSelected(null); setRevealed(false)
+    }
+  }
+
+  const cardBorder = revealed ? (isCorrect ? '#10b98133' : '#ef444433') : '#1e293b'
+
+  return (
+    <div style={{ maxWidth: '680px', margin: '0 auto', padding: '32px 24px 80px' }}>
+
+      {/* Top bar */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+        <button onClick={onBack} style={{
+          background: 'none', border: '1px solid #1e293b', borderRadius: '8px',
+          color: '#64748b', cursor: 'pointer', fontSize: '13px', padding: '7px 14px', fontWeight: 600,
+        }}>← Dashboard</button>
+        <span style={{ fontSize: '13px', color: '#475569', fontFamily: 'monospace', fontWeight: 700 }}>
+          {step + 1} / {total}
+        </span>
+      </div>
+
+      {/* Progress bar */}
+      <div style={{ height: '4px', background: '#0f172a', borderRadius: '999px', marginBottom: '28px', overflow: 'hidden' }}>
+        <div style={{
+          height: '100%', borderRadius: '999px',
+          background: `linear-gradient(90deg, ${ACC}, ${ACC}88)`,
+          width: `${barPct}%`, transition: 'width 0.4s ease',
+        }} />
+      </div>
+
+      {/* Badge pill */}
+      <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+        <div style={{
+          display: 'inline-flex', alignItems: 'center', gap: '12px',
+          background: `${ACC}12`, border: `1px solid ${ACC}28`,
+          borderRadius: '14px', padding: '12px 20px',
+        }}>
+          <span style={{ fontSize: '28px' }}>{quiz.emoji}</span>
+          <div style={{ textAlign: 'left' }}>
+            <div style={{ fontSize: '15px', fontWeight: 800, color: '#f1f5f9' }}>{quiz.title}</div>
+            <div style={{ fontSize: '11px', color: '#64748b' }}>Soulbound NFT · {tier.label} Badge</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Step dots */}
+      <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', marginBottom: '20px' }}>
+        {quiz.questions.map((_, i) => (
+          <div key={i} style={{
+            height: '6px', borderRadius: '3px',
+            width: i === step ? '28px' : '6px',
+            background: i < step ? ACC : i === step ? ACC : '#1e293b',
+            opacity: i < step ? 0.5 : 1,
+            transition: 'all 0.3s ease',
+          }} />
+        ))}
+      </div>
+
+      {/* Question card */}
+      <div style={{
+        background: '#0d1424', border: `1px solid ${cardBorder}`,
+        borderRadius: '20px', padding: '28px',
+        transition: 'border-color 0.3s',
+        marginBottom: '12px',
+      }}>
+        <div style={{ fontSize: '11px', fontWeight: 700, color: ACC, textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: '12px' }}>
+          Question {step + 1}
+        </div>
+        <p style={{ fontSize: '18px', fontWeight: 600, color: '#f1f5f9', lineHeight: 1.6, margin: '0 0 24px' }}>
+          {question.question}
+        </p>
+
+        {/* Options */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px' }}>
+          {question.options.map((opt, i) => {
+            let bg = '#131c2e', border = '#1e293b', color = '#cbd5e1'
+            let lBg = '#1e293b', lColor = '#64748b'
+            if (revealed) {
+              if (i === question.correctIndex) { bg = '#052e16'; border = '#10b981'; color = '#6ee7b7'; lBg = '#10b981'; lColor = '#000' }
+              else if (i === selected) { bg = '#450a0a'; border = '#ef4444'; color = '#fca5a5'; lBg = '#ef4444'; lColor = '#fff' }
+            } else if (i === selected) {
+              bg = `${ACC}18`; border = ACC; color = '#f1f5f9'; lBg = ACC; lColor = '#fff'
+            }
+            return (
+              <button key={i} onClick={() => !revealed && setSelected(i)} style={{
+                display: 'flex', alignItems: 'center', gap: '12px',
+                background: bg, border: `1px solid ${border}`, borderRadius: '12px',
+                color, cursor: revealed ? 'default' : 'pointer',
+                fontSize: '14px', fontWeight: 500, padding: '13px 16px',
+                textAlign: 'left', transition: 'all 0.15s', width: '100%',
+              }}>
+                <span style={{
+                  minWidth: '30px', height: '30px', borderRadius: '8px',
+                  background: lBg, color: lColor,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: '12px', fontWeight: 800, flexShrink: 0, transition: 'all 0.15s',
+                }}>{['A', 'B', 'C', 'D'][i]}</span>
+                <span style={{ flex: 1 }}>{opt}</span>
+                {revealed && i === question.correctIndex && <span style={{ fontSize: '14px' }}>✓</span>}
+                {revealed && i === selected && i !== question.correctIndex && <span style={{ fontSize: '14px' }}>✗</span>}
+              </button>
+            )
+          })}
+        </div>
+
+        {/* Confirm (inside card) */}
+        {!revealed && (
+          <button onClick={confirm} disabled={selected === null} style={{
+            width: '100%', padding: '14px',
+            background: selected !== null ? `linear-gradient(135deg, ${ACC}, ${ACC}cc)` : '#131c2e',
+            border: `1px solid ${selected !== null ? ACC + '80' : '#1e293b'}`,
+            borderRadius: '12px', color: selected !== null ? '#fff' : '#334155',
+            cursor: selected !== null ? 'pointer' : 'not-allowed',
+            fontWeight: 800, fontSize: '15px', transition: 'all 0.2s',
+          }}>
+            Confirm Answer
+          </button>
+        )}
+      </div>
+
+      {/* Feedback + action */}
+      {revealed && (
+        <>
+          <div style={{
+            padding: '14px 18px', borderRadius: '12px', marginBottom: '12px',
+            background: isCorrect ? '#052e1680' : '#2d0a0a80',
+            border: `1px solid ${isCorrect ? '#10b98140' : '#ef444440'}`,
+            display: 'flex', alignItems: 'flex-start', gap: '12px',
+          }}>
+            <span style={{ fontSize: '20px', marginTop: '1px' }}>{isCorrect ? '🎯' : '💡'}</span>
+            <div>
+              <div style={{ fontSize: '14px', fontWeight: 700, color: isCorrect ? '#4ade80' : '#f87171', marginBottom: '3px' }}>
+                {isCorrect ? 'Correct!' : 'Incorrect'}
+              </div>
+              <div style={{ fontSize: '13px', color: '#94a3b8' }}>
+                {isCorrect
+                  ? isLast ? 'All done! Mint your Soulbound badge.' : 'Moving to next question…'
+                  : `Correct answer: "${question.options[question.correctIndex]}" — Quiz restarts from Q1.`}
+              </div>
+            </div>
+          </div>
+          <button onClick={next} style={{
+            width: '100%', padding: '14px',
+            background: isCorrect
+              ? `linear-gradient(135deg, ${ACC}, ${ACC}cc)`
+              : 'linear-gradient(135deg, #7f1d1d, #dc2626)',
+            border: 'none', borderRadius: '12px', color: '#fff',
+            cursor: 'pointer', fontWeight: 800, fontSize: '15px',
+          }}>
+            {isCorrect ? (isLast ? '🎉 Mint My Badge' : 'Next Question →') : '↺ Try Again from Q1'}
+          </button>
+        </>
+      )}
+    </div>
+  )
+}
+
+// ── Mint Badge ─────────────────────────────────────────────────────
+function MintBadge({ quiz, answers, onDone }: {
+  quiz: QuizData; answers: number[]; onDone: () => void
+}) {
+  const { address } = useAccount()
+  const { writeContract, data: hash, isPending, error } = useWriteContract()
+  const { isSuccess, isLoading: isConfirming } = useWaitForTransactionReceipt({ hash })
+  const tier = getBadgeTier(quiz.id)
+  const refUrl = `${APP_URL}?ref=${address?.slice(2, 10) ?? 'arc'}`
+
+  function handleMint() {
+    writeContract({
+      address: QUIZ_CONTRACT, abi: ARC_QUIZ_ABI,
+      functionName: 'submitQuiz',
+      args: [BigInt(quiz.id), answers.map(a => a as number)],
+      chainId: arcTestnet.id,
+    })
+  }
+
+  function shareOnX() {
+    const text = `Just minted "${quiz.emoji} ${quiz.title}" Soulbound NFT on #Arc Testnet! 🏆\n\nEarn yours free on @OnChainGM Quiz:`
+    window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(refUrl)}`, '_blank')
+  }
+
+  return (
+    <div style={{ maxWidth: '480px', margin: '0 auto', padding: '60px 24px 80px', textAlign: 'center' }}>
+      <div style={{ fontSize: '56px', marginBottom: '12px' }}>🎉</div>
+      <h2 style={{ fontSize: '26px', fontWeight: 900, color: '#f1f5f9', margin: '0 0 8px' }}>All Correct!</h2>
+      <p style={{ color: '#94a3b8', marginBottom: '28px', fontSize: '15px', lineHeight: 1.6 }}>
+        Mint your <strong style={{ color: '#f1f5f9' }}>{quiz.emoji} {quiz.title}</strong> Soulbound badge on Arc Testnet!
+      </p>
+
+      {/* Badge preview */}
+      <div style={{
+        background: `linear-gradient(135deg, ${ACC}18, #0d1424)`,
+        border: `2px solid ${ACC}44`, borderRadius: '20px',
+        padding: '28px', marginBottom: '20px', position: 'relative', overflow: 'hidden',
+      }}>
+        <div style={{
+          position: 'absolute', top: 0, right: 0,
+          background: tier.color, borderRadius: '0 20px 0 10px',
+          padding: '4px 12px', fontSize: '11px', fontWeight: 900, color: '#000',
+        }}>{tier.label}</div>
+        <div style={{ fontSize: '52px', marginBottom: '10px' }}>{quiz.emoji}</div>
+        <div style={{ fontSize: '18px', fontWeight: 800, color: '#f1f5f9', marginBottom: '4px' }}>Arc Quiz Badge #{quiz.id}</div>
+        <div style={{ fontSize: '12px', color: '#64748b' }}>Soulbound NFT · Non-transferable · Arc Testnet</div>
+      </div>
+
+      {!isSuccess && (
+        <button onClick={handleMint} disabled={isPending || isConfirming} style={{
+          width: '100%', padding: '15px',
+          background: `linear-gradient(135deg, ${ACC}, ${ACC}cc)`,
+          border: 'none', borderRadius: '12px', color: '#fff',
+          cursor: isPending || isConfirming ? 'not-allowed' : 'pointer',
+          fontWeight: 800, fontSize: '16px', marginBottom: '10px',
+          opacity: isPending || isConfirming ? 0.7 : 1,
+        }}>
+          {isPending ? 'Confirm in wallet…' : isConfirming ? '⏳ Minting…' : '⛏ Mint Arc Badge'}
+        </button>
+      )}
+
+      {error && (
+        <div style={{ color: '#ef4444', fontSize: '13px', marginBottom: '12px', padding: '12px', background: '#1e293b', borderRadius: '10px', textAlign: 'left' }}>
+          {error.message.slice(0, 150)}
+        </div>
+      )}
+
+      {isSuccess && (
+        <div style={{ marginBottom: '12px' }}>
+          <div style={{ fontSize: '32px', marginBottom: '8px' }}>✅</div>
+          <div style={{ color: ACC, fontWeight: 700, fontSize: '16px', marginBottom: '4px' }}>Badge minted on Arc Testnet!</div>
+          {hash && (
+            <a href={`https://testnet.arcscan.app/tx/${hash}`} target="_blank" rel="noreferrer"
+              style={{ color: '#60a5fa', fontSize: '13px', display: 'block', marginBottom: '20px', textDecoration: 'none' }}>
+              View on ArcScan →
+            </a>
+          )}
+          <button onClick={shareOnX} style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+            width: '100%', background: '#000', border: '1px solid #333',
+            borderRadius: '12px', color: '#fff', cursor: 'pointer',
+            fontWeight: 700, fontSize: '15px', padding: '14px', marginBottom: '10px',
+          }}>
+            <XIcon /> Share on X
+          </button>
+        </div>
+      )}
+
+      <button onClick={onDone} style={{
+        width: '100%', padding: '12px',
+        background: 'none', border: `1px solid ${isSuccess ? ACC + '44' : '#1e293b'}`,
+        borderRadius: '12px', color: isSuccess ? ACC : '#64748b',
+        cursor: 'pointer', fontWeight: 700, fontSize: '14px',
+      }}>← Back to Dashboard</button>
+    </div>
+  )
+}
+
+// ── Twitter Feed ───────────────────────────────────────────────────
 function TwitterFeed({ handle }: { handle: string }) {
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -91,12 +377,15 @@ function SocialLink({ icon, label, url, color }: { icon: React.ReactNode; label:
 // ── Main Dashboard ─────────────────────────────────────────────────
 export default function DashboardPage() {
   const { address, isConnected } = useAccount()
+  const [quizState, setQuizState] = useState<'dashboard' | 'playing' | 'result'>('dashboard')
+  const [activeQuiz, setActiveQuiz] = useState<QuizData | null>(null)
+  const [correctAnswers, setCorrectAnswers] = useState<number[] | null>(null)
   const [copied, setCopied] = useState(false)
   const [unlockedCount] = useState(getArcUnlockedCount())
 
   const refUrl = `${APP_URL}?ref=${address?.slice(2, 10) ?? 'arc'}`
 
-  const { data: progress } = useReadContract({
+  const { data: progress, refetch } = useReadContract({
     address: QUIZ_CONTRACT, abi: ARC_QUIZ_ABI, functionName: 'getUserProgress',
     args: address ? [address] : undefined,
     query: { enabled: !!address && QUIZ_CONTRACT !== '0x0000000000000000000000000000000000000000' },
@@ -129,6 +418,28 @@ export default function DashboardPage() {
     window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(refUrl)}`, '_blank')
   }
 
+  // ── Quiz screens ───────────────────────────────────────────────
+  if (quizState === 'playing' && activeQuiz) {
+    return (
+      <QuizPlayer
+        quiz={activeQuiz}
+        onPass={ans => { setCorrectAnswers(ans); setQuizState('result') }}
+        onBack={() => { setQuizState('dashboard'); setActiveQuiz(null) }}
+      />
+    )
+  }
+
+  if (quizState === 'result' && activeQuiz && correctAnswers) {
+    return (
+      <MintBadge
+        quiz={activeQuiz}
+        answers={correctAnswers}
+        onDone={() => { setQuizState('dashboard'); setActiveQuiz(null); setCorrectAnswers(null); refetch() }}
+      />
+    )
+  }
+
+  // ── Dashboard ──────────────────────────────────────────────────
   return (
     <div style={{ maxWidth: '1140px', margin: '0 auto', padding: '32px 24px 80px' }}>
 
@@ -154,13 +465,13 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* Stats Row */}
+      {/* Stats */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '24px' }}>
         {[
           { icon: '🎓', value: `${completedCount}/${ARC_QUIZZES.length}`, label: 'Completed' },
           { icon: '🏅', value: myBadgeCount?.toString() ?? '0',           label: 'My Badges' },
           { icon: '🌍', value: totalMinted?.toString() ?? '—',            label: 'Total Minted' },
-          { icon: '🔓', value: `${unlockedCount}/16`,                     label: 'Unlocked' },
+          { icon: '🔓', value: `${unlockedCount}/${ARC_QUIZZES.length}`,  label: 'Unlocked' },
         ].map(s => (
           <div key={s.label} style={{ background: '#0d1424', border: '1px solid #1e293b', borderRadius: '14px', padding: '18px 12px', textAlign: 'center' }}>
             <div style={{ fontSize: '22px', marginBottom: '6px' }}>{s.icon}</div>
@@ -170,13 +481,13 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      {/* 2-column layout */}
+      {/* 2-col layout */}
       <div className="dash-2col">
 
         {/* LEFT */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
 
-          {/* Level Progress */}
+          {/* Level progress */}
           <div style={{ background: '#0d1424', border: '1px solid #1e293b', borderRadius: '16px', padding: '22px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -186,7 +497,7 @@ export default function DashboardPage() {
                   {nextLevel && <div style={{ fontSize: '12px', color: '#64748b' }}>Next: {nextLevel.icon} {nextLevel.label}</div>}
                 </div>
               </div>
-              <span style={{ fontSize: '12px', color: '#64748b', fontFamily: 'monospace' }}>{completedCount}/{nextLevel ? nextLevel.min : 16}</span>
+              <span style={{ fontSize: '12px', color: '#64748b', fontFamily: 'monospace' }}>{completedCount}/{nextLevel ? nextLevel.min : ARC_QUIZZES.length}</span>
             </div>
             <div style={{ height: '8px', background: '#1e293b', borderRadius: '999px', overflow: 'hidden', marginBottom: '16px' }}>
               <div style={{
@@ -205,7 +516,7 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Badge Grid */}
+          {/* Badge grid */}
           <div>
             <h2 style={{ fontSize: '13px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', margin: '0 0 12px', paddingBottom: '10px', borderBottom: '1px solid #1e293b' }}>
               Arc Badges · {completedCount}/{ARC_QUIZZES.length} earned
@@ -213,7 +524,8 @@ export default function DashboardPage() {
             <div style={{ display: 'flex', gap: '8px', marginBottom: '12px', flexWrap: 'wrap' }}>
               {BADGE_TIERS.map(t => (
                 <div key={t.label} style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px', fontWeight: 700, color: t.color }}>
-                  <div style={{ width: '8px', height: '8px', borderRadius: '2px', background: t.color }} />{t.label} (quiz {t.maxId <= 4 ? '1–4' : t.maxId <= 8 ? '5–8' : t.maxId <= 12 ? '9–12' : '13–16'})
+                  <div style={{ width: '8px', height: '8px', borderRadius: '2px', background: t.color }} />
+                  {t.label} ({t.maxId <= 4 ? '1–4' : t.maxId <= 8 ? '5–8' : t.maxId <= 12 ? '9–12' : '13–16'})
                 </div>
               ))}
             </div>
@@ -222,13 +534,20 @@ export default function DashboardPage() {
                 const done = progressArr[i] as boolean
                 const unlocked = i < unlockedCount
                 const tier = getBadgeTier(quiz.id)
+                const clickable = unlocked && !done
                 return (
-                  <div key={quiz.id} style={{
-                    background: done ? tier.bg : '#0d1424',
-                    border: `1px solid ${done ? tier.border : unlocked ? '#1e293b' : '#0f172a'}`,
-                    borderRadius: '12px', padding: '14px 8px', textAlign: 'center',
-                    opacity: unlocked ? 1 : 0.3, position: 'relative', transition: 'all 0.2s',
-                  }}>
+                  <div key={quiz.id}
+                    onClick={clickable ? () => { setActiveQuiz(quiz); setQuizState('playing') } : undefined}
+                    onMouseEnter={e => { if (clickable) (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-2px)' }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.transform = 'translateY(0)' }}
+                    style={{
+                      background: done ? tier.bg : '#0d1424',
+                      border: `1px solid ${done ? tier.border : clickable ? `${ACC}30` : '#0f172a'}`,
+                      borderRadius: '12px', padding: '14px 8px 12px', textAlign: 'center',
+                      opacity: unlocked ? 1 : 0.3, position: 'relative',
+                      cursor: clickable ? 'pointer' : 'default',
+                      transition: 'all 0.2s',
+                    }}>
                     {done && (
                       <div style={{
                         position: 'absolute', top: 0, right: 0,
@@ -237,8 +556,9 @@ export default function DashboardPage() {
                       }}>{tier.label}</div>
                     )}
                     <div style={{ fontSize: '22px', marginBottom: '6px' }}>{done ? quiz.emoji : unlocked ? quiz.emoji : '🔒'}</div>
-                    <div style={{ fontSize: '10px', fontWeight: 700, color: done ? '#e2e8f0' : '#475569', lineHeight: 1.3 }}>{quiz.title}</div>
-                    {done && <div style={{ marginTop: '5px', fontSize: '10px', color: tier.color, fontWeight: 700 }}>✓ SBT #{quiz.id}</div>}
+                    <div style={{ fontSize: '10px', fontWeight: 700, color: done ? '#e2e8f0' : '#475569', lineHeight: 1.3, marginBottom: '5px' }}>{quiz.title}</div>
+                    {done && <div style={{ fontSize: '10px', color: tier.color, fontWeight: 700 }}>✓ SBT #{quiz.id}</div>}
+                    {clickable && <div style={{ fontSize: '10px', color: ACC, fontWeight: 700 }}>▶ Start</div>}
                   </div>
                 )
               })}
@@ -280,16 +600,16 @@ export default function DashboardPage() {
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
               <span style={{ fontSize: '24px' }}>◈</span>
               <div>
-                <div style={{ fontSize: '15px', fontWeight: 800, color: '#3b82f6' }}>Arc Testnet</div>
+                <div style={{ fontSize: '15px', fontWeight: 800, color: ACC }}>Arc Testnet</div>
                 <div style={{ fontSize: '11px', color: '#64748b' }}>by Circle · Chain ID 5042002</div>
               </div>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <SocialLink icon={<XIcon />}       label="@circle"              url="https://twitter.com/circle"         color="#fff" />
-              <SocialLink icon={<DiscordIcon />} label="Discord"              url="https://discord.gg/buildwitharc"    color="#5865f2" />
-              <SocialLink icon={<GlobeIcon />}   label="arc.circle.com"       url="https://arc.circle.com"             color="#3b82f6" />
-              <SocialLink icon={<GlobeIcon />}   label="testnet.arcscan.app"  url="https://testnet.arcscan.app"        color="#64748b" />
-              <SocialLink icon={<GlobeIcon />}   label="faucet.circle.com"    url="https://faucet.circle.com"          color="#10b981" />
+              <SocialLink icon={<XIcon />}       label="@circle"             url="https://twitter.com/circle"         color="#fff" />
+              <SocialLink icon={<DiscordIcon />} label="Discord"             url="https://discord.gg/buildwitharc"    color="#5865f2" />
+              <SocialLink icon={<GlobeIcon />}   label="arc.circle.com"      url="https://arc.circle.com"             color={ACC} />
+              <SocialLink icon={<GlobeIcon />}   label="testnet.arcscan.app" url="https://testnet.arcscan.app"        color="#64748b" />
+              <SocialLink icon={<GlobeIcon />}   label="faucet.circle.com"   url="https://faucet.circle.com"          color="#10b981" />
             </div>
           </div>
 
@@ -307,7 +627,7 @@ export default function DashboardPage() {
             <div style={{ padding: '14px 18px', borderBottom: '1px solid #1e293b', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <XIcon />
               <span style={{ fontSize: '13px', fontWeight: 700, color: '#e2e8f0' }}>Latest from @circle</span>
-              <a href="https://twitter.com/circle" target="_blank" rel="noreferrer" style={{ marginLeft: 'auto', fontSize: '11px', color: '#3b82f6', textDecoration: 'none' }}>View all →</a>
+              <a href="https://twitter.com/circle" target="_blank" rel="noreferrer" style={{ marginLeft: 'auto', fontSize: '11px', color: ACC, textDecoration: 'none' }}>View all →</a>
             </div>
             <TwitterFeed handle="circle" />
           </div>

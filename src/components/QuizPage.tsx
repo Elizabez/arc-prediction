@@ -131,9 +131,15 @@ function QuizPlayer({ quiz, onPass, onBack }: {
   )
 }
 
+const APP_URL = 'https://testnet-quiz.vercel.app'
+const XIcon = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.746l7.73-8.835L1.254 2.25H8.08l4.259 5.63L18.244 2.25zm-1.161 17.52h1.833L7.084 4.126H5.117L17.083 19.77z"/></svg>
+
 function MintBadge({ quiz, answers, onDone }: { quiz: QuizData; answers: number[]; onDone: () => void }) {
+  const { address } = useAccount()
   const { writeContract, data: hash, isPending, error } = useWriteContract()
   const { isSuccess, isLoading: isConfirming } = useWaitForTransactionReceipt({ hash })
+
+  const refUrl = `${APP_URL}?ref=${address?.slice(2, 10) ?? 'arc'}`
 
   function handleMint() {
     writeContract({
@@ -143,6 +149,11 @@ function MintBadge({ quiz, answers, onDone }: { quiz: QuizData; answers: number[
       args: [BigInt(quiz.id), answers.map(a => a as number)],
       chainId: arcTestnet.id,
     })
+  }
+
+  function shareOnX() {
+    const text = `Just minted "${quiz.emoji} ${quiz.title}" Soulbound NFT on #Arc Testnet! 🏆\n\nEarn yours free on @OnChainGM Quiz:`
+    window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(refUrl)}`, '_blank')
   }
 
   return (
@@ -177,7 +188,15 @@ function MintBadge({ quiz, answers, onDone }: { quiz: QuizData; answers: number[
               View transaction →
             </a>
           )}
-          <button className="mint-btn" onClick={onDone} style={{ marginTop: '16px', width: '100%' }}>← Back to Quizzes</button>
+          <button onClick={shareOnX} style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+            width: '100%', background: '#000', border: '1px solid #333',
+            borderRadius: '12px', color: '#fff', cursor: 'pointer',
+            fontWeight: 700, fontSize: '15px', padding: '14px', marginTop: '14px',
+          }}>
+            <XIcon /> Share on X
+          </button>
+          <button className="mint-btn" onClick={onDone} style={{ marginTop: '10px', width: '100%', background: 'none', border: '1px solid #334155' }}>← Back to Quizzes</button>
         </div>
       )}
     </div>

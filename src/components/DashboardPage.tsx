@@ -250,6 +250,7 @@ function MintBadge({ quiz, answers, onDone }: {
       address: QUIZ_CONTRACT, abi: ARC_QUIZ_ABI,
       functionName: 'submitQuiz',
       args: [BigInt(quiz.id), answers.map(a => a as number)],
+      gas: BigInt(300000),
     })
   }
 

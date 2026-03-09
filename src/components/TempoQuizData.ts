@@ -1,12 +1,9 @@
-// TempoQuiz ABI — 20 quizzes, bool[20] progress
 export const TEMPO_QUIZ_ABI = [
   {
     type: 'function', name: 'submitQuiz', stateMutability: 'nonpayable',
     inputs: [
       { name: 'quizId', type: 'uint256' },
-      { name: 'ans0', type: 'uint8' },
-      { name: 'ans1', type: 'uint8' },
-      { name: 'ans2', type: 'uint8' },
+      { name: 'answerIndex', type: 'uint8' },
     ],
     outputs: [],
   },
@@ -18,7 +15,7 @@ export const TEMPO_QUIZ_ABI = [
   {
     type: 'function', name: 'getUserProgress', stateMutability: 'view',
     inputs: [{ name: 'user', type: 'address' }],
-    outputs: [{ type: 'bool[20]' }],
+    outputs: [{ type: 'bool[]' }],
   },
   {
     type: 'function', name: 'getUserBadges', stateMutability: 'view',
@@ -27,6 +24,11 @@ export const TEMPO_QUIZ_ABI = [
   },
   {
     type: 'function', name: 'totalMinted', stateMutability: 'view',
+    inputs: [],
+    outputs: [{ type: 'uint256' }],
+  },
+  {
+    type: 'function', name: 'totalQuizzes', stateMutability: 'view',
     inputs: [],
     outputs: [{ type: 'uint256' }],
   },
@@ -45,507 +47,92 @@ export const TEMPO_QUIZ_ABI = [
   },
 ] as const
 
-// ── Unlock schedule ──────────────────────────────────────────
-// Quiz 1–5 unlocked immediately on START_DATE (March 10, 2025)
-// Every 3 days after that, one more quiz unlocks (quiz 6 on day 3, etc.)
-// All times UTC midnight
-const START_DATE = new Date('2025-03-10T00:00:00Z')
+// ── Unlock schedule ───────────────────────────────────────────────
+// Quiz 1–5: open from March 10, 2026
+// Every 3 days: +1 quiz → quiz 6 on Mar 13, quiz 7 on Mar 16, ...
+// Tempo has 50 quizzes → all unlocked by Mar 10 + (45×3) days = ~Aug 2027
+const TEMPO_START_DATE = new Date('2026-03-10T00:00:00Z')
 
-export function getUnlockedCount(): number {
+export function getTempoUnlockedCount(totalOnChain = 50): number {
   const now = Date.now()
-  const start = START_DATE.getTime()
-  if (now < start) return 0
+  const start = TEMPO_START_DATE.getTime()
+  if (now < start) return Math.min(5, totalOnChain)
   const daysPassed = Math.floor((now - start) / (1000 * 60 * 60 * 24))
-  // Quiz 1-5 open from day 0; quiz 6 opens after 3 days, quiz 7 after 6 days, etc.
-  const extraUnlocked = Math.floor(daysPassed / 3)
-  return Math.min(5 + extraUnlocked, 20)
+  const extra = Math.floor(daysPassed / 3)
+  return Math.min(5 + extra, totalOnChain)
 }
 
-export function getUnlockDate(quizId: number): Date {
-  if (quizId <= 5) return START_DATE
-  const daysAfterStart = (quizId - 5) * 3
-  return new Date(START_DATE.getTime() + daysAfterStart * 24 * 60 * 60 * 1000)
+export function getTempoUnlockDate(quizId: number): Date {
+  if (quizId <= 5) return TEMPO_START_DATE
+  return new Date(TEMPO_START_DATE.getTime() + (quizId - 5) * 3 * 24 * 60 * 60 * 1000)
 }
 
-export function formatUnlockDate(quizId: number): string {
-  const d = getUnlockDate(quizId)
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' })
-}
-
-// ── Types ─────────────────────────────────────────────────────
-export interface QuizQuestion {
-  question: string
-  options: [string, string, string, string]
-  correctIndex: number
+export function formatTempoUnlockDate(quizId: number): string {
+  return getTempoUnlockDate(quizId).toLocaleDateString('en-US', {
+    month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC',
+  })
 }
 
 export interface QuizData {
   id: number
   title: string
   emoji: string
-  questions: [QuizQuestion, QuizQuestion, QuizQuestion]
+  difficulty: 'Easy' | 'Medium' | 'Hard' | 'Very Hard'
+  question: string
+  options: [string, string, string, string]
+  correctIndex: number
 }
 
-// ── 20 Quizzes ────────────────────────────────────────────────
-// correctIndex values MUST match TempoQuiz.sol _loadQuizzes() answer hashes exactly!
+// correctIndex MUST match TempoQuiz.sol _loadQuizzes() answerIndex exactly!
 export const TEMPO_QUIZZES: QuizData[] = [
-  // ── Q1: a0=1, a1=2, a2=2 ──
-  {
-    id: 1, title: "Welcome to Tempo", emoji: "🎵",
-    questions: [
-      {
-        question: "Tempo is a general-purpose blockchain optimized for what use case?",
-        options: ["NFT gaming", "Payments", "DeFi lending", "Social media"],
-        correctIndex: 1,
-      },
-      {
-        question: "What is Tempo's approach to transaction fees?",
-        options: ["Paid in native volatile token", "Free for all users", "Paid in stablecoins", "Paid in ETH"],
-        correctIndex: 2,
-      },
-      {
-        question: "What is Tempo's current testnet codename?",
-        options: ["Andantino", "Allegro", "Moderato", "Presto"],
-        correctIndex: 2,
-      },
-    ],
-  },
-
-  // ── Q2: a0=2, a1=2, a2=1 ──
-  {
-    id: 2, title: "Tempo Network Details", emoji: "🔗",
-    questions: [
-      {
-        question: "What is Tempo Moderato testnet's Chain ID?",
-        options: ["1337", "42429", "42431", "5042002"],
-        correctIndex: 2,
-      },
-      {
-        question: "What is the RPC URL for Tempo Moderato testnet?",
-        options: ["rpc.tempo.xyz", "rpc.andantino.tempo.xyz", "rpc.moderato.tempo.xyz", "api.tempo.network"],
-        correctIndex: 2,
-      },
-      {
-        question: "Where is Tempo's official block explorer?",
-        options: ["scout.tempo.xyz", "explore.tempo.xyz", "scan.tempo.xyz", "blocks.tempo.xyz"],
-        correctIndex: 1,
-      },
-    ],
-  },
-
-  // ── Q3: a0=2, a1=2, a2=1 ──
-  {
-    id: 3, title: "Tempo Finality", emoji: "⚡",
-    questions: [
-      {
-        question: "Approximately how fast are blocks finalized on Tempo?",
-        options: ["Every 12 seconds", "Every 2 seconds", "Sub-second (~0.5s)", "Every 1 minute"],
-        correctIndex: 2,
-      },
-      {
-        question: "What type of finality does Tempo provide?",
-        options: ["Probabilistic", "Eventual", "Deterministic instant", "Optimistic"],
-        correctIndex: 2,
-      },
-      {
-        question: "Tempo's deterministic finality gives payment operators certainty similar to:",
-        options: ["Bitcoin 6-block confirmation", "Traditional financial system settlement", "Ethereum 2 epochs", "PayPal instant transfer"],
-        correctIndex: 1,
-      },
-    ],
-  },
-
-  // ── Q4: a0=1, a1=1, a2=1 ──
-  {
-    id: 4, title: "Tempo Gas Model", emoji: "⛽",
-    questions: [
-      {
-        question: "What is unusual about Tempo's gas payment model?",
-        options: ["Gas is very expensive", "There is no volatile native gas token", "Gas requires staking first", "Gas changes every block"],
-        correctIndex: 1,
-      },
-      {
-        question: "What test stablecoin does Tempo's Moderato faucet provide?",
-        options: ["TestUSDC", "AlphaUSD", "TempoDollar", "MockUSDT"],
-        correctIndex: 1,
-      },
-      {
-        question: "Stable predictable fees on Tempo primarily help enterprises with:",
-        options: ["Token speculation", "Accounting and treasury workflows", "Mining operations", "NFT resale pricing"],
-        correctIndex: 1,
-      },
-    ],
-  },
-
-  // ── Q5: a0=2, a1=2, a2=2 ──
-  {
-    id: 5, title: "Tempo EVM Compatibility", emoji: "🔧",
-    questions: [
-      {
-        question: "Can existing Solidity smart contracts be deployed on Tempo without code changes?",
-        options: ["No, requires Tempo SDK wrapper", "Only ERC-20 token contracts", "Yes, it is fully EVM compatible", "Only with special Tempo compiler"],
-        correctIndex: 2,
-      },
-      {
-        question: "Which deployment tool does Tempo officially support for contract deployment?",
-        options: ["Brownie only", "Truffle Suite only", "Foundry / Forge", "Remix IDE only"],
-        correctIndex: 2,
-      },
-      {
-        question: "Tempo's contract source verification service is available at:",
-        options: ["verify.tempo.xyz", "etherscan.io/verifyContract", "contracts.tempo.xyz", "sourcify.tempo.dev"],
-        correctIndex: 2,
-      },
-    ],
-  },
-
-  // ── Q6: a0=1, a1=2, a2=1 ── (unlocks Mar 13)
-  {
-    id: 6, title: "Tempo Built-in Features", emoji: "✨",
-    questions: [
-      {
-        question: "Which of these is a built-in Tempo protocol feature that requires no custom contract code?",
-        options: ["NFT marketplace", "Gas fee sponsorship", "Yield farming vault", "Oracle price feeds"],
-        correctIndex: 1,
-      },
-      {
-        question: "Tempo natively supports modern wallet authentication via:",
-        options: ["Username and password", "Hardware security keys only", "Passkeys (WebAuthn)", "Email one-time passwords"],
-        correctIndex: 2,
-      },
-      {
-        question: "Which advanced transaction capability is natively supported by Tempo?",
-        options: ["Flash loans", "Batch transactions", "Cross-chain atomic swaps", "MEV extraction"],
-        correctIndex: 1,
-      },
-    ],
-  },
-
-  // ── Q7: a0=1, a1=1, a2=2 ── (unlocks Mar 16)
-  {
-    id: 7, title: "Tempo & Stablecoins", emoji: "💵",
-    questions: [
-      {
-        question: "Tempo is primarily designed to work with which category of stablecoins?",
-        options: ["Algorithmic stablecoins", "Fiat-backed USD stablecoins", "Crypto-collateralized stablecoins", "CBDCs only"],
-        correctIndex: 1,
-      },
-      {
-        question: "Tempo is built in close collaboration with design partners to validate against:",
-        options: ["NFT trading workloads", "Real payment workloads", "Gaming transaction patterns", "DeFi arbitrage flows"],
-        correctIndex: 1,
-      },
-      {
-        question: "Tempo's built-in Stablecoin DEX is specifically optimized for:",
-        options: ["Leveraged token trading", "NFT floor price discovery", "FX exchange between stablecoins", "Yield farming pools"],
-        correctIndex: 2,
-      },
-    ],
-  },
-
-  // ── Q8: a0=2, a1=2, a2=2 ── (unlocks Mar 19)
-  {
-    id: 8, title: "Tempo Ecosystem", emoji: "🌍",
-    questions: [
-      {
-        question: "Tempo's open-source code is available under which license?",
-        options: ["MIT License", "GPL v3", "Apache 2.0", "Business Source License"],
-        correctIndex: 2,
-      },
-      {
-        question: "Which analytics platform provides dedicated Tempo testnet data dashboards?",
-        options: ["Dune Analytics", "Nansen Portfolio", "Artemis", "Glassnode Studio"],
-        correctIndex: 2,
-      },
-      {
-        question: "Which wallet infrastructure provider added Tempo chain support for fintechs?",
-        options: ["MetaMask Institutional", "Rainbow Wallet", "Para (formerly GetPara)", "Trust Wallet"],
-        correctIndex: 2,
-      },
-    ],
-  },
-
-  // ── Q9: a0=1, a1=1, a2=2 ── (unlocks Mar 22)
-  {
-    id: 9, title: "Tempo Transactions", emoji: "💸",
-    questions: [
-      {
-        question: "What makes 'Tempo Transactions' different from standard EVM transactions?",
-        options: ["They are anonymous by default", "They are a payment-optimized transaction type with built-in features", "They bypass gas fees entirely", "They execute cross-chain automatically"],
-        correctIndex: 1,
-      },
-      {
-        question: "Tempo's built-in fee sponsorship enables developers to offer users:",
-        options: ["Unlimited free transactions forever", "Gasless or subsidized transaction flows", "Mining rewards for users", "Automatic validator incentives"],
-        correctIndex: 1,
-      },
-      {
-        question: "Scheduled recurring payments on Tempo are handled:",
-        options: ["Only through third-party middleware", "Via external server-side cron jobs", "As a native built-in protocol feature", "Manually triggered by validators"],
-        correctIndex: 2,
-      },
-    ],
-  },
-
-  // ── Q10: a0=1, a1=2, a2=2 ── (unlocks Mar 25)
-  {
-    id: 10, title: "Tempo Vision", emoji: "🚀",
-    questions: [
-      {
-        question: "Tempo's core design goal is to deliver what combination of properties?",
-        options: [
-          "Speed, privacy, and decentralized governance",
-          "Instant settlement, predictable fees, and stablecoin-native UX",
-          "Maximum decentralization, security, and scalability",
-          "High yield, deep liquidity, and composability",
-        ],
-        correctIndex: 1,
-      },
-      {
-        question: "Which consumer fintech is publicly listed as a Tempo design partner?",
-        options: ["Stripe", "Square", "Revolut", "PayPal"],
-        correctIndex: 2,
-      },
-      {
-        question: "While Tempo validator participation is permissioned, building on Tempo is:",
-        options: [
-          "Restricted to reading blockchain data only",
-          "Only available with validator permission",
-          "Limited to Circle-approved projects",
-          "Fully open — anyone can deploy and transact",
-        ],
-        correctIndex: 3,
-      },
-    ],
-  },
-
-  // ── Q11: a0=0, a1=1, a2=3 ── (unlocks Mar 28)
-  {
-    id: 11, title: "TIP Standards", emoji: "📋",
-    questions: [
-      {
-        question: "What does 'TIP' stand for in the Tempo ecosystem?",
-        options: ["Tempo Improvement Proposal", "Token Issuance Protocol", "Transaction Integration Pattern", "Tempo Interface Parameter"],
-        correctIndex: 0,
-      },
-      {
-        question: "TIP-20 is Tempo's standard for:",
-        options: ["Block production rules", "Fungible tokens on Tempo", "Validator staking requirements", "Cross-chain bridges"],
-        correctIndex: 1,
-      },
-      {
-        question: "What is the purpose of TIP-403 in the Tempo protocol?",
-        options: ["Defines token decimals", "Specifies block gas limits", "Governs validator election", "Enables policy-based transfer controls"],
-        correctIndex: 3,
-      },
-    ],
-  },
-
-  // ── Q12: a0=2, a1=0, a2=1 ── (unlocks Mar 31)
-  {
-    id: 12, title: "TIP-20 Rewards", emoji: "🎁",
-    questions: [
-      {
-        question: "TIP-20 Rewards allow token issuers to:",
-        options: ["Burn tokens automatically", "Set validator commission rates", "Distribute yield or rewards to token holders natively", "Pause token transfers"],
-        correctIndex: 2,
-      },
-      {
-        question: "Where are TIP-20 reward distributions handled in the Tempo protocol?",
-        options: ["At the protocol layer, natively built-in", "Via third-party reward contracts only", "Through off-chain snapshots", "Manually by the token issuer each epoch"],
-        correctIndex: 0,
-      },
-      {
-        question: "Which type of financial product benefits most from TIP-20 Rewards?",
-        options: ["NFT collections", "Yield-bearing stablecoins and tokenized assets", "Prediction markets", "Decentralized identity systems"],
-        correctIndex: 1,
-      },
-    ],
-  },
-
-  // ── Q13: a0=3, a1=1, a2=0 ── (unlocks Apr 3)
-  {
-    id: 13, title: "TIP-403 Policies", emoji: "🛡️",
-    questions: [
-      {
-        question: "TIP-403 policies on Tempo enable token issuers to define:",
-        options: ["Block size limits", "Validator rewards schedules", "Mining difficulty adjustments", "Rules for who can hold or transfer their token"],
-        correctIndex: 3,
-      },
-      {
-        question: "Which industry has the most direct use for TIP-403 transfer policies?",
-        options: ["Regulated financial institutions needing compliance controls", "Gaming companies with in-app currencies", "NFT artists managing royalties", "Validators managing node configurations"],
-        correctIndex: 1,
-      },
-      {
-        question: "TIP-403 policies are enforced:",
-        options: ["At the protocol level on every token transfer", "Only on bridge transactions", "Via optional smart contract audits", "By validator committees voting on each transfer"],
-        correctIndex: 0,
-      },
-    ],
-  },
-
-  // ── Q14: a0=1, a1=3, a2=2 ── (unlocks Apr 6)
-  {
-    id: 14, title: "Fee Architecture", emoji: "💰",
-    questions: [
-      {
-        question: "On Tempo, who can optionally pay transaction fees on behalf of users?",
-        options: ["Only validators", "Any dApp or protocol acting as a fee sponsor", "Circle only", "The Tempo Foundation"],
-        correctIndex: 1,
-      },
-      {
-        question: "What makes Tempo's fee model enterprise-friendly compared to ETH gas?",
-        options: ["Fees are always zero", "Fees require staking ARC tokens", "Fees can only be paid monthly", "Fees are denominated in stablecoins — predictable and non-volatile"],
-        correctIndex: 3,
-      },
-      {
-        question: "Fee sponsorship on Tempo is implemented at:",
-        options: ["The application smart contract layer only", "The validator node level only", "The protocol transaction level natively", "A separate L2 rollup"],
-        correctIndex: 2,
-      },
-    ],
-  },
-
-  // ── Q15: a0=0, a1=2, a2=3 ── (unlocks Apr 9)
-  {
-    id: 15, title: "Tempo Blockspace", emoji: "🧱",
-    questions: [
-      {
-        question: "How does Tempo prioritize transaction ordering within a block?",
-        options: ["First-come-first-served based on submission time", "Highest gas price wins (like Ethereum)", "Random ordering by validator", "Weighted by stake of sender"],
-        correctIndex: 0,
-      },
-      {
-        question: "Tempo's block design is optimized to minimize:",
-        options: ["Token decimals", "Smart contract bytecode size", "MEV (Maximal Extractable Value) opportunities", "Validator node count"],
-        correctIndex: 2,
-      },
-      {
-        question: "Tempo's high throughput design is intended to handle the demands of:",
-        options: ["Individual hobbyist users only", "Small dApp communities", "Academic research networks", "High-volume institutional payment flows"],
-        correctIndex: 3,
-      },
-    ],
-  },
-
-  // ── Q16: a0=2, a1=0, a2=1 ── (unlocks Apr 12)
-  {
-    id: 16, title: "Stablecoin DEX", emoji: "🔄",
-    questions: [
-      {
-        question: "Tempo's native Stablecoin DEX uses which type of pricing curve for low slippage?",
-        options: ["Constant product (x*y=k)", "Constant sum formula", "StableSwap (Curve-style) invariant", "Dutch auction model"],
-        correctIndex: 2,
-      },
-      {
-        question: "Where is the Stablecoin DEX functionality located in the Tempo stack?",
-        options: ["Built into the protocol as a native feature", "Deployed as a third-party smart contract", "Available only on Tempo L2", "Hosted on a centralized matching engine"],
-        correctIndex: 0,
-      },
-      {
-        question: "The primary use case for Tempo's Stablecoin DEX is:",
-        options: ["Speculative leverage trading", "FX conversion between stablecoins (e.g. USDC to EURC)", "NFT floor price auctions", "Yield-bearing lending pools"],
-        correctIndex: 1,
-      },
-    ],
-  },
-
-  // ── Q17: a0=1, a1=3, a2=0 ── (unlocks Apr 15)
-  {
-    id: 17, title: "Tempo Accounts", emoji: "👤",
-    questions: [
-      {
-        question: "What type of account abstraction does Tempo natively support?",
-        options: ["External Owned Accounts (EOA) only", "Smart contract accounts with programmable logic", "Hardware wallet accounts only", "Multi-sig accounts only"],
-        correctIndex: 1,
-      },
-      {
-        question: "Tempo's native account system allows users to authenticate with:",
-        options: ["Only seed phrases", "Only hardware wallets", "Only MetaMask extension", "Passkeys, social login, or traditional wallets"],
-        correctIndex: 3,
-      },
-      {
-        question: "Account recovery on Tempo can be set up using:",
-        options: ["Social recovery via trusted contacts or modules", "Only the original seed phrase", "Only a centralized Tempo recovery service", "Validator committee vote"],
-        correctIndex: 0,
-      },
-    ],
-  },
-
-  // ── Q18: a0=3, a1=2, a2=1 ── (unlocks Apr 18)
-  {
-    id: 18, title: "Tempo Payments", emoji: "💳",
-    questions: [
-      {
-        question: "Which payment flow does Tempo natively support at the protocol level?",
-        options: ["Leveraged margin payments", "Flash loan repayments", "P2P lending installments", "Scheduled recurring stablecoin transfers"],
-        correctIndex: 3,
-      },
-      {
-        question: "Tempo's payment features are designed specifically for:",
-        options: ["Retail consumer crypto trading", "DeFi yield optimization", "Institutional-grade payment infrastructure", "NFT marketplace royalties only"],
-        correctIndex: 2,
-      },
-      {
-        question: "Instant finality on Tempo eliminates the need for:",
-        options: ["Smart contracts in payments", "Stablecoin usage in payments", "Waiting for confirmations before considering a payment final", "Validator nodes in the network"],
-        correctIndex: 1,
-      },
-    ],
-  },
-
-  // ── Q19: a0=0, a1=1, a2=2 ── (unlocks Apr 21)
-  {
-    id: 19, title: "Stablecoin Issuance", emoji: "🏦",
-    questions: [
-      {
-        question: "What does Tempo provide to stablecoin issuers beyond basic ERC-20 transfers?",
-        options: ["A full suite: TIP-403 policies, native rewards, and DEX liquidity", "Only a token minting interface", "Only a bridge to Ethereum", "Governance voting for monetary policy"],
-        correctIndex: 0,
-      },
-      {
-        question: "TIP-20 tokens on Tempo can optionally include:",
-        options: ["Built-in yield distribution via TIP-20 Rewards", "Automatic price pegging mechanisms", "On-chain KYC identity proofs", "Fixed 18 decimal places only"],
-        correctIndex: 1,
-      },
-      {
-        question: "Which Tempo feature helps stablecoin issuers meet regulatory compliance requirements?",
-        options: ["Anonymous private transactions", "TIP-403 transfer policies with access controls", "Proof-of-work consensus", "Cross-chain bridge whitelists"],
-        correctIndex: 2,
-      },
-    ],
-  },
-
-  // ── Q20: a0=2, a1=3, a2=0 ── (unlocks Apr 24)
-  {
-    id: 20, title: "Tempo Advanced", emoji: "🧠",
-    questions: [
-      {
-        question: "How does Tempo achieve its payment-focused performance without sacrificing EVM compatibility?",
-        options: [
-          "By forking Ethereum with minor tweaks",
-          "By running EVM only on L2 sidechains",
-          "By implementing a custom EVM execution environment optimized for payment workloads",
-          "By limiting smart contract functionality to simple transfers",
-        ],
-        correctIndex: 2,
-      },
-      {
-        question: "Tempo's approach to validator permissioning is designed to:",
-        options: ["Make it fully anonymous and permissionless like Ethereum", "Allow anyone to become a validator instantly", "Ensure network reliability for enterprise payment SLAs", "Maximize decentralization above all else"],
-        correctIndex: 3,
-      },
-      {
-        question: "Which combination best describes Tempo's unique value proposition?",
-        options: [
-          "EVM-compatible + stablecoin gas + sub-second finality + payment-native features",
-          "Zero-knowledge proofs + anonymous transactions + PoW consensus",
-          "Maximum decentralization + permissionless validators + volatile gas token",
-          "Layer 2 rollup + optimistic fraud proofs + 7-day withdrawal window",
-        ],
-        correctIndex: 0,
-      },
-    ],
-  },
+  { id: 1,  title: "What is Tempo",           emoji: "🎵", difficulty: "Easy",      question: "What is Tempo?", options: ["A Layer 1 blockchain for payments", "A Layer 2 for Ethereum", "A decentralized exchange", "A crypto wallet"], correctIndex: 0 },
+  { id: 2,  title: "Tempo Incubators",        emoji: "🏗️", difficulty: "Easy",      question: "Which companies incubated Tempo?", options: ["Coinbase & Binance", "Stripe & Paradigm", "Visa & Mastercard", "Google & Apple"], correctIndex: 1 },
+  { id: 3,  title: "Tempo Design",            emoji: "⚡", difficulty: "Easy",      question: "Tempo is designed to be a low-cost and ______ blockchain.", options: ["High-latency", "High-throughput", "Private-only", "Energy-heavy"], correctIndex: 1 },
+  { id: 4,  title: "Tempo Asset Class",       emoji: "💵", difficulty: "Easy",      question: "What asset class is Tempo specifically optimized for?", options: ["NFTs", "Governance tokens", "Stablecoins", "Meme coins"], correctIndex: 2 },
+  { id: 5,  title: "Tempo Focus",             emoji: "🎯", difficulty: "Easy",      question: "What is the primary focus of Tempo's architecture?", options: ["Gaming", "Social Media", "Payments at scale", "Supply chain"], correctIndex: 2 },
+  { id: 6,  title: "Tempo Testnet Name",      emoji: "🧪", difficulty: "Easy",      question: "What is the name of the current Tempo testnet?", options: ["Allegro", "Moderato", "Presto", "Andante"], correctIndex: 1 },
+  { id: 7,  title: "Old Testnet Deprecated",  emoji: "📅", difficulty: "Easy",      question: "When was the old Tempo testnet deprecated?", options: ["January 1, 2025", "March 8, 2025", "December 9, 2025", "February 5, 2026"], correctIndex: 1 },
+  { id: 8,  title: "Tempo Validators",        emoji: "🤝", difficulty: "Easy",      question: "Which partner helps Tempo validate against real payment workloads?", options: ["Design Partners", "Retail users", "Validators only", "Mining pools"], correctIndex: 0 },
+  { id: 9,  title: "Tempo Partners",          emoji: "🏢", difficulty: "Easy",      question: "Tempo was developed in partnership with fintechs and ______ companies.", options: ["Startup", "Fortune 500", "Non-profit", "Local"], correctIndex: 1 },
+  { id: 10, title: "Tempo Faucet",            emoji: "🚿", difficulty: "Easy",      question: "Where can you get funds to test on the Tempo network?", options: ["Mainnet Bridge", "CEX withdrawal", "Faucet", "Mining"], correctIndex: 2 },
+  { id: 11, title: "Tempo Remittances",       emoji: "🌍", difficulty: "Medium",    question: "What use case enables fast, cheap cross-border money transfers?", options: ["Remittances", "Microtransactions", "Yield farming", "Tokenized Deposits"], correctIndex: 0 },
+  { id: 12, title: "Embedded Finance",        emoji: "📱", difficulty: "Medium",    question: "Which feature allows platforms to embed payment flows directly into apps?", options: ["Flash loans", "Embedded Finance", "Staking", "Governance"], correctIndex: 1 },
+  { id: 13, title: "Microtransactions",       emoji: "🔬", difficulty: "Medium",    question: "What use case involves sub-cent payments for APIs and IoT services?", options: ["Global Payouts", "Corporate Treasury", "Microtransactions", "Remittances"], correctIndex: 2 },
+  { id: 14, title: "Agentic Commerce",        emoji: "🤖", difficulty: "Medium",    question: "What is 'Agentic Commerce' on Tempo?", options: ["Manual trading", "Programmable payments for autonomous agents", "Real estate tokenization", "Peer-to-peer chat"], correctIndex: 1 },
+  { id: 15, title: "Tokenized Deposits",      emoji: "🏦", difficulty: "Medium",    question: "Which use case provides real-time visibility into global cash positions?", options: ["Remittances", "Tokenized Deposits", "NFT Staking", "Payroll"], correctIndex: 1 },
+  { id: 16, title: "TIP-20 Standard",         emoji: "📋", difficulty: "Medium",    question: "What is TIP-20 in the Tempo ecosystem?", options: ["A governance proposal", "A token standard for payments", "A security patch", "A wallet address format"], correctIndex: 1 },
+  { id: 17, title: "Tempo Acquisition",       emoji: "🔑", difficulty: "Medium",    question: "Who did Tempo acquire in October 2025?", options: ["Commonware", "Merkle", "Ithaca", "Stripe"], correctIndex: 2 },
+  { id: 18, title: "Tempo Partnership Nov",   emoji: "🤜", difficulty: "Medium",    question: "Tempo partnered with which company in November 2025?", options: ["Merkle", "Commonware", "Paradigm", "Ithaca"], correctIndex: 1 },
+  { id: 19, title: "Blog Feb 25",             emoji: "📰", difficulty: "Medium",    question: "Which blog post was released on Feb 25, 2026?", options: ["Stablecoin Fees", "Stablecoins for Payroll", "Compliance controls", "Tempo x Merkle"], correctIndex: 1 },
+  { id: 20, title: "Tempo Chain ID",          emoji: "🔢", difficulty: "Medium",    question: "What is the new Chain ID for the Tempo Moderato testnet?", options: ["1", "137", "42431", "80001"], correctIndex: 2 },
+  { id: 21, title: "Tempo RPC URL",           emoji: "🔗", difficulty: "Medium",    question: "What is the RPC URL for the current Tempo testnet?", options: ["https://rpc.tempo.xyz", "https://rpc.moderato.tempo.xyz", "https://test.tempo.xyz", "https://eth.tempo.xyz"], correctIndex: 1 },
+  { id: 22, title: "Tempo Purpose",           emoji: "🧭", difficulty: "Medium",    question: "Tempo is described as a ______-purpose blockchain optimized for payments.", options: ["Specific", "General", "Private", "Single"], correctIndex: 1 },
+  { id: 23, title: "Ecosystem Partners",      emoji: "🌐", difficulty: "Medium",    question: "Which category of partners helps with stablecoin issuance and custody?", options: ["Retail Partners", "Ecosystem Partners", "Mining Partners", "DAO Partners"], correctIndex: 1 },
+  { id: 24, title: "Blog Global Payouts",     emoji: "📆", difficulty: "Medium",    question: "When was the blog 'Stablecoins for Global Payouts' published?", options: ["January 14, 2026", "February 10, 2026", "December 18, 2025", "September 4, 2025"], correctIndex: 0 },
+  { id: 25, title: "Testnet Migration",       emoji: "🔄", difficulty: "Medium",    question: "What should developers do when migrating to the new testnet?", options: ["Keep old contracts", "Redeploy any contracts", "Nothing", "Bridge from Mainnet"], correctIndex: 1 },
+  { id: 26, title: "Learn Section Focus",     emoji: "📚", difficulty: "Hard",      question: "According to the sources, what is the 'Learn' section's focus?", options: ["Trading tips", "Stablecoin use cases & Tempo architecture", "Mining guides", "NFT minting"], correctIndex: 1 },
+  { id: 27, title: "ACH vs Wire Blog",        emoji: "💼", difficulty: "Hard",      question: "Which blog post provides a guide for finance teams comparing ACH and wire?", options: ["Stablecoin Fees", "ACH vs wire vs stablecoins", "Corporate Treasury", "TIP-20"], correctIndex: 1 },
+  { id: 28, title: "Tempo x Merkle Date",     emoji: "🗓️", difficulty: "Hard",      question: "What was the date of the Tempo x Merkle announcement?", options: ["Feb 5, 2026", "Feb 9, 2026", "Feb 19, 2026", "Feb 25, 2026"], correctIndex: 1 },
+  { id: 29, title: "Remittances Read Time",   emoji: "⏱️", difficulty: "Hard",      question: "How long is the reading time for the 'Stablecoins for Remittances' blog post?", options: ["5 min", "8 min", "10 min", "12 min"], correctIndex: 3 },
+  { id: 30, title: "Dec 17 Feature",          emoji: "🆕", difficulty: "Hard",      question: "Which technical feature was introduced on Dec 17, 2025?", options: ["Tempo Testnet", "Tempo Transactions", "TIP-20", "Moderato Testnet"], correctIndex: 1 },
+  { id: 31, title: "Design Partners Reach",   emoji: "🌏", difficulty: "Hard",      question: "The 'Design Partners' of Tempo serve how many people worldwide?", options: ["Millions", "Billions", "Thousands", "Hundreds"], correctIndex: 1 },
+  { id: 32, title: "Compliance Blog Date",    emoji: "📅", difficulty: "Hard",      question: "Which blog post deep dive focuses on 'Compliance controls'?", options: ["Jan 6, 2026", "Feb 19, 2026", "Feb 5, 2026", "Dec 17, 2025"], correctIndex: 1 },
+  { id: 33, title: "Reset Migration",         emoji: "🗄️", difficulty: "Hard",      question: "What must you reset if they depend on old testnet data during migration?", options: ["Wallets", "Databases or indexers", "Internet router", "Social media accounts"], correctIndex: 1 },
+  { id: 34, title: "Infrastructure Partners", emoji: "🏗️", difficulty: "Hard",      question: "What was the date of the announcement 'Meet Tempo's infrastructure partners'?", options: ["September 23, 2025", "September 4, 2025", "October 17, 2025", "November 7, 2025"], correctIndex: 0 },
+  { id: 35, title: "TIP-20 Read Time",        emoji: "📖", difficulty: "Hard",      question: "What is the duration of the TIP-20 deep dive blog post?", options: ["5 min", "6 min", "8 min", "10 min"], correctIndex: 2 },
+  { id: 36, title: "First Blog Post",         emoji: "🥇", difficulty: "Hard",      question: "Which blog post was published first?", options: ["Tempo's testnet is live", "Introducing Tempo", "Tempo x Ithaca", "TIP-20"], correctIndex: 1 },
+  { id: 37, title: "Tempo Global Use",        emoji: "🌐", difficulty: "Hard",      question: "Tempo aims to provide global transactions for ______ use case.", options: ["Only retail", "Only corporate", "Any", "Only cross-border"], correctIndex: 2 },
+  { id: 38, title: "Tempo Design Input",      emoji: "🏛️", difficulty: "Hard",      question: "What category of companies is Tempo designed with input from?", options: ["Category-defining institutions", "Retail shops", "Central banks only", "Social media influencers"], correctIndex: 0 },
+  { id: 39, title: "Old Testnet Fate",        emoji: "⚰️", difficulty: "Hard",      question: "In the Moderato testnet migration, what happened to the old testnet?", options: ["It was merged", "It was deprecated", "It became mainnet", "It was renamed"], correctIndex: 1 },
+  { id: 40, title: "Feb 5 Blog Focus",        emoji: "📝", difficulty: "Hard",      question: "What is the focus of the blog post published on Feb 5, 2026?", options: ["Payroll", "Compliance", "Stablecoin Fees", "Remittances"], correctIndex: 2 },
+  { id: 41, title: "Global Payouts Read",     emoji: "⏰", difficulty: "Very Hard", question: "How many minutes is the reading time for 'Stablecoins for Global Payouts'?", options: ["5 min", "8 min", "10 min", "12 min"], correctIndex: 2 },
+  { id: 42, title: "Real Workloads Group",    emoji: "🔧", difficulty: "Very Hard", question: "Which partner group helps shape the future of Tempo against real workloads?", options: ["Design Partners", "Ecosystem Partners", "Retail Partners", "Validators"], correctIndex: 0 },
+  { id: 43, title: "Corporate Treasury Date", emoji: "🗓️", difficulty: "Very Hard", question: "When was the blog 'Stablecoins for Corporate Treasury' published?", options: ["Dec 18, 2025", "Dec 17, 2025", "Dec 9, 2025", "Jan 6, 2026"], correctIndex: 0 },
+  { id: 44, title: "New Testnet RC",          emoji: "🚀", difficulty: "Very Hard", question: "The new testnet aligns with which release candidate?", options: ["Beta 1", "Mainnet", "Devnet", "Staging"], correctIndex: 1 },
+  { id: 45, title: "New Testnet Reason",      emoji: "❓", difficulty: "Very Hard", question: "Why did Tempo launch a new testnet according to the documentation?", options: ["Security breach", "Faster feature release cycles", "Lack of users", "Legal reasons"], correctIndex: 1 },
+  { id: 46, title: "Introducing Read Time",   emoji: "📖", difficulty: "Very Hard", question: "What is the reading time for the 'Introducing Tempo' blog post?", options: ["1 min", "3 min", "5 min", "8 min"], correctIndex: 1 },
+  { id: 47, title: "Issuance Category",       emoji: "🗂️", difficulty: "Very Hard", question: "What ecosystem category includes 'Issuance Orchestration & Ramps'?", options: ["Infrastructure", "Partnerships", "Compliance", "Interoperability"], correctIndex: 0 },
+  { id: 48, title: "Tempo Intro Date",        emoji: "🎂", difficulty: "Very Hard", question: "On which day in 2025 was Tempo introduced as the payments-first blockchain?", options: ["Sept 4", "Sept 23", "Oct 17", "Dec 9"], correctIndex: 0 },
+  { id: 49, title: "Dec 17 Blog Focus",       emoji: "🔍", difficulty: "Very Hard", question: "What is the focus of the blog post dated 12/17/2025?", options: ["Testnet Live", "Introducing Tempo Transactions", "Corporate Treasury", "TIP-20"], correctIndex: 1 },
+  { id: 50, title: "Longest Blog Post",       emoji: "🏆", difficulty: "Very Hard", question: "Which blog post has the longest reading time (12 min)?", options: ["Stablecoins for Payroll", "Stablecoins for Global Payouts", "Stablecoins for Remittances", "Stablecoins for Treasury"], correctIndex: 2 },
 ]

@@ -262,7 +262,7 @@ function MintBadge({ quiz, answers, onDone }: {
   }
 
   function shareOnX() {
-    const text = `Just minted "${quiz.emoji} ${quiz.title}" Soulbound NFT on #Tempo Testnet! 🎵\n\nEarn yours free on @OnChainGM Quiz:`
+    const text = `Just minted "${quiz.emoji} ${quiz.title}" Soulbound NFT on #Tempo Testnet! 🎵\n\nEarn yours free on Quiz:`
     window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(refUrl)}`, '_blank')
   }
 
@@ -434,7 +434,7 @@ export default function TempoDashboardPage() {
     navigator.clipboard.writeText(refUrl).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000) })
   }
   function shareOnX() {
-    const text = `Just earned Soulbound NFT badges learning #Tempo blockchain! 🎵\nJoin me on @OnChainGM Quiz — learn & earn for free:`
+    const text = `Just earned Soulbound NFT badges learning #Tempo blockchain! 🎵\nJoin me on Quiz — learn & earn for free:`
     window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(refUrl)}`, '_blank')
   }
 

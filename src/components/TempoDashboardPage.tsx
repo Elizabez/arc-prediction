@@ -51,13 +51,25 @@ function QuizPlayer({ quiz, onPass, onBack }: {
   const [answers, setAnswers] = useState<number[]>([])
   const [selected, setSelected] = useState<number | null>(null)
   const [revealed, setRevealed] = useState(false)
+  const [shuffledOptions, setShuffledOptions] = useState<string[]>([])
+  const [shuffledCorrectIndex, setShuffledCorrectIndex] = useState(0)
 
   const question = quiz.questions[step]
   const total = quiz.questions.length
   const isLast = step === total - 1
-  const isCorrect = revealed && selected === question.correctIndex
+  const isCorrect = revealed && selected === shuffledCorrectIndex
   const tier = getBadgeTier(quiz.id)
   const barPct = Math.round(((step + (revealed && isCorrect ? 1 : 0)) / total) * 100)
+
+  useEffect(() => {
+    const opts = [...question.options] as string[]
+    for (let i = opts.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [opts[i], opts[j]] = [opts[j], opts[i]]
+    }
+    setShuffledOptions(opts)
+    setShuffledCorrectIndex(opts.indexOf(question.options[question.correctIndex]))
+  }, [step, quiz.id])
 
   function confirm() {
     if (selected === null) return
@@ -66,11 +78,11 @@ function QuizPlayer({ quiz, onPass, onBack }: {
 
   function next() {
     if (selected === null) return
-    const newAnswers = [...answers, selected]
-    if (selected !== question.correctIndex) {
+    if (selected !== shuffledCorrectIndex) {
       setStep(0); setAnswers([]); setSelected(null); setRevealed(false)
       return
     }
+    const newAnswers = [...answers, question.correctIndex]
     if (isLast) {
       onPass(newAnswers)
     } else {
@@ -146,11 +158,11 @@ function QuizPlayer({ quiz, onPass, onBack }: {
 
         {/* Options */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px' }}>
-          {question.options.map((opt, i) => {
+          {shuffledOptions.map((opt, i) => {
             let bg = '#131c2e', border = '#1e293b', color = '#cbd5e1'
             let lBg = '#1e293b', lColor = '#64748b'
             if (revealed) {
-              if (i === question.correctIndex) { bg = '#052e16'; border = '#10b981'; color = '#6ee7b7'; lBg = '#10b981'; lColor = '#000' }
+              if (i === shuffledCorrectIndex) { bg = '#052e16'; border = '#10b981'; color = '#6ee7b7'; lBg = '#10b981'; lColor = '#000' }
               else if (i === selected) { bg = '#450a0a'; border = '#ef4444'; color = '#fca5a5'; lBg = '#ef4444'; lColor = '#fff' }
             } else if (i === selected) {
               bg = `${ACC}18`; border = ACC; color = '#f1f5f9'; lBg = ACC; lColor = '#fff'
@@ -170,8 +182,8 @@ function QuizPlayer({ quiz, onPass, onBack }: {
                   fontSize: '12px', fontWeight: 800, flexShrink: 0, transition: 'all 0.15s',
                 }}>{['A', 'B', 'C', 'D'][i]}</span>
                 <span style={{ flex: 1 }}>{opt}</span>
-                {revealed && i === question.correctIndex && <span style={{ fontSize: '14px' }}>✓</span>}
-                {revealed && i === selected && i !== question.correctIndex && <span style={{ fontSize: '14px' }}>✗</span>}
+                {revealed && i === shuffledCorrectIndex && <span style={{ fontSize: '14px' }}>✓</span>}
+                {revealed && i === selected && i !== shuffledCorrectIndex && <span style={{ fontSize: '14px' }}>✗</span>}
               </button>
             )
           })}
@@ -209,7 +221,7 @@ function QuizPlayer({ quiz, onPass, onBack }: {
               <div style={{ fontSize: '13px', color: '#94a3b8' }}>
                 {isCorrect
                   ? isLast ? 'All done! Mint your Soulbound badge.' : 'Moving to next question…'
-                  : `Correct answer: "${question.options[question.correctIndex]}" — Quiz restarts from Q1.`}
+                  : `Correct answer: "${shuffledOptions[shuffledCorrectIndex]}" — Quiz restarts from Q1.`}
               </div>
             </div>
           </div>

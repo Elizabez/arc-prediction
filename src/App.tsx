@@ -6,6 +6,7 @@ import { config, arcTestnet, tempoTestnet, robinhoodTestnet } from './wagmi'
 import DashboardPage from './components/DashboardPage'
 import TempoDashboardPage from './components/TempoDashboardPage'
 import RobinhoodDashboardPage from './components/RobinhoodDashboardPage'
+import LeaderboardPage from './components/LeaderboardPage'
 import './components/dashboard.css'
 
 const queryClient = new QueryClient()
@@ -40,6 +41,7 @@ function AppInner() {
   const chainId = useChainId()
   const { switchChain } = useSwitchChain()
   const [showChainMenu, setShowChainMenu] = useState(false)
+  const [page, setPage] = useState<'chain' | 'leaderboard'>('chain')
 
   const isArc       = chainId === arcTestnet.id
   const isTempo     = chainId === tempoTestnet.id
@@ -101,6 +103,19 @@ function AppInner() {
             </div>
           )}
 
+          {/* Leaderboard button */}
+          <button onClick={() => setPage(p => p === 'leaderboard' ? 'chain' : 'leaderboard')} style={{
+            display: 'flex', alignItems: 'center', gap: '5px',
+            background: page === 'leaderboard' ? '#f59e0b22' : '#1e293b',
+            border: `1px solid ${page === 'leaderboard' ? '#f59e0b66' : '#334155'}`,
+            borderRadius: '8px', color: page === 'leaderboard' ? '#f59e0b' : '#94a3b8',
+            cursor: 'pointer', fontWeight: 700, fontSize: '12px', padding: '6px 12px',
+            transition: 'all 0.15s',
+          }}>
+            🏆 <span style={{ display: 'none' }}>Leaderboard</span>
+            <span style={{ display: 'inline' }}>Board</span>
+          </button>
+
           {/* Chain switcher */}
           <div style={{ position: 'relative' }}>
             <button onClick={() => setShowChainMenu(!showChainMenu)} style={{
@@ -142,7 +157,9 @@ function AppInner() {
       </nav>
 
       {/* Content */}
-      {!isConnected ? (
+      {page === 'leaderboard' ? (
+        <LeaderboardPage />
+      ) : !isConnected ? (
         <div style={{ maxWidth: '960px', margin: '0 auto', padding: '56px 24px 80px' }}>
 
           {/* ── Hero ── */}

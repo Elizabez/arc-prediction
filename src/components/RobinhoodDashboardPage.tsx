@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
-import { ROBINHOOD_QUIZ_ABI, ROBINHOOD_QUIZZES, getRobinhoodUnlockedCount, type QuizData } from './RobinhoodQuizData'
+import { ROBINHOOD_QUIZ_ABI, ROBINHOOD_QUIZZES, getRobinhoodUnlockedCount, getRobinhoodUnlockDate, type QuizData } from './RobinhoodQuizData'
 import { robinhoodTestnet } from '../wagmi'
 
 const RH_QUIZ_CONTRACT = (import.meta.env['VITE_ROBINHOOD_QUIZ_CONTRACT'] ?? '0x0000000000000000000000000000000000000000').trim() as `0x${string}`
@@ -214,6 +214,14 @@ function QuizPlayer({ quiz, onPass, onBack }: {
                   ? isLast ? 'All done! Mint your Soulbound badge.' : 'Moving to next question…'
                   : `Correct answer: "${shuffledOptions[shuffledCorrectIndex]}" — Quiz restarts from Q1.`}
               </div>
+              {question.explanation && (
+                <div style={{
+                  fontSize: '12px', color: '#64748b', lineHeight: 1.6,
+                  paddingTop: '8px', borderTop: '1px solid rgba(255,255,255,0.06)',
+                }}>
+                  📖 {question.explanation}
+                </div>
+              )}
             </div>
           </div>
           <button onClick={next} style={{
@@ -265,19 +273,38 @@ function MintBadge({ quiz, answers, onDone }: {
         Mint your <strong style={{ color: '#f1f5f9' }}>{quiz.emoji} {quiz.title}</strong> Soulbound badge on Robinhood Chain Testnet!
       </p>
 
+      {/* Badge Card */}
       <div style={{
-        background: `linear-gradient(135deg, ${ACC}18, #0d1424)`,
-        border: `2px solid ${ACC}44`, borderRadius: '20px',
-        padding: '28px', marginBottom: '20px', position: 'relative', overflow: 'hidden',
+        position: 'relative', borderRadius: '24px', overflow: 'hidden',
+        background: `linear-gradient(145deg, #0a0f1a 0%, ${tier.color}10 50%, #22c55e0a 100%)`,
+        border: `1.5px solid ${tier.color}50`, padding: '32px 24px 24px',
+        marginBottom: '20px', textAlign: 'center',
+        boxShadow: `0 0 40px ${tier.color}18, inset 0 0 60px rgba(0,0,0,0.3)`,
       }}>
         <div style={{
           position: 'absolute', top: 0, right: 0,
-          background: tier.color, borderRadius: '0 20px 0 10px',
-          padding: '4px 12px', fontSize: '11px', fontWeight: 900, color: '#000',
+          background: `linear-gradient(135deg, ${tier.color}, ${tier.color}bb)`,
+          borderRadius: '0 24px 0 14px', padding: '6px 16px',
+          fontSize: '10px', fontWeight: 900, color: '#000', letterSpacing: '1px',
         }}>{tier.label}</div>
-        <div style={{ fontSize: '52px', marginBottom: '10px' }}>{quiz.emoji}</div>
-        <div style={{ fontSize: '18px', fontWeight: 800, color: '#f1f5f9', marginBottom: '4px' }}>Robinhood Quiz Badge #{quiz.id}</div>
-        <div style={{ fontSize: '12px', color: '#64748b' }}>Soulbound NFT · Non-transferable · Chain ID 46630</div>
+        <div style={{ position: 'absolute', top: '-50px', left: '-50px', width: '160px', height: '160px', borderRadius: '50%', background: '#22c55e06', border: '1px solid #22c55e12' }} />
+        <div style={{ position: 'absolute', bottom: '-40px', right: '-40px', width: '120px', height: '120px', borderRadius: '50%', background: `${tier.color}06`, border: `1px solid ${tier.color}12` }} />
+        <div style={{ position: 'relative', zIndex: 1 }}>
+          <div style={{
+            display: 'inline-flex', alignItems: 'center', gap: '5px',
+            background: '#22c55e15', border: '1px solid #22c55e28',
+            borderRadius: '999px', padding: '3px 10px',
+            fontSize: '10px', fontWeight: 700, color: '#22c55e',
+            letterSpacing: '0.08em', marginBottom: '16px',
+          }}>🔴 ROBINHOOD CHAIN</div>
+          <div style={{ fontSize: '68px', marginBottom: '12px', filter: `drop-shadow(0 0 20px ${tier.color}66)` }}>{quiz.emoji}</div>
+          <div style={{ fontSize: '20px', fontWeight: 900, color: '#f1f5f9', letterSpacing: '-0.5px', marginBottom: '6px' }}>{quiz.title}</div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '10px', color: '#475569', fontWeight: 600, letterSpacing: '0.05em' }}>SOULBOUND · #{quiz.id}</span>
+            <span style={{ color: '#334155' }}>·</span>
+            <span style={{ fontSize: '10px', fontWeight: 700, color: tier.color, letterSpacing: '0.05em' }}>NON-TRANSFERABLE</span>
+          </div>
+        </div>
       </div>
 
       {!isSuccess && (
@@ -369,6 +396,55 @@ function SocialLink({ icon, label, url, color }: { icon: React.ReactNode; label:
       <span>{label}</span>
       <span style={{ marginLeft: 'auto', fontSize: '10px', opacity: 0.4 }}>↗</span>
     </a>
+  )
+}
+
+// ── Next Quiz Countdown ─────────────────────────────────────────────
+function NextUnlockCountdown({ unlockedCount }: { unlockedCount: number }) {
+  const [timeLeft, setTimeLeft] = useState('')
+  const nextQuiz = ROBINHOOD_QUIZZES[unlockedCount]
+  const ACC = '#22c55e'
+
+  useEffect(() => {
+    if (!nextQuiz) return
+    const unlockDate = getRobinhoodUnlockDate(nextQuiz.id)
+    function update() {
+      const diff = unlockDate.getTime() - Date.now()
+      if (diff <= 0) { setTimeLeft('Unlocking soon…'); return }
+      const d = Math.floor(diff / 86400000)
+      const h = Math.floor((diff % 86400000) / 3600000)
+      const m = Math.floor((diff % 3600000) / 60000)
+      const s = Math.floor((diff % 60000) / 1000)
+      setTimeLeft(d > 0 ? `${d}d ${h}h ${m}m` : h > 0 ? `${h}h ${m}m ${s}s` : `${m}m ${s}s`)
+    }
+    update()
+    const id = setInterval(update, 1000)
+    return () => clearInterval(id)
+  }, [nextQuiz])
+
+  if (!nextQuiz) return null
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: '12px',
+      background: `${ACC}08`, border: `1px solid ${ACC}20`,
+      borderRadius: '12px', padding: '12px 16px', marginBottom: '16px',
+    }}>
+      <span style={{ fontSize: '22px' }}>⏰</span>
+      <div style={{ flex: 1 }}>
+        <div style={{ fontSize: '10px', color: '#475569', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+          Next quiz unlocks in
+        </div>
+        <div style={{ fontSize: '18px', fontWeight: 900, color: ACC, fontFamily: 'monospace', letterSpacing: '-0.5px' }}>
+          {timeLeft}
+        </div>
+      </div>
+      <div style={{ textAlign: 'right' }}>
+        <div style={{ fontSize: '10px', color: '#475569', marginBottom: '2px' }}>Coming up</div>
+        <div style={{ fontSize: '13px', fontWeight: 700, color: '#e2e8f0' }}>
+          {nextQuiz.emoji} {nextQuiz.title}
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -515,6 +591,11 @@ export default function RobinhoodDashboardPage() {
               ))}
             </div>
           </div>
+
+          {/* Countdown to next unlock */}
+          {unlockedCount < ROBINHOOD_QUIZZES.length && (
+            <NextUnlockCountdown unlockedCount={unlockedCount} />
+          )}
 
           {/* Badge grid */}
           <div>

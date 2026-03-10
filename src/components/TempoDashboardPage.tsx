@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
-import { TEMPO_QUIZ_ABI, TEMPO_QUIZZES, getTempoUnlockedCount, type QuizData } from './TempoQuizData'
+import { TEMPO_QUIZ_ABI, TEMPO_QUIZZES, getTempoUnlockedCount, getTempoUnlockDate, type QuizData } from './TempoQuizData'
 import { tempoTestnet } from '../wagmi'
 
 const TEMPO_QUIZ_CONTRACT = (import.meta.env['VITE_TEMPO_QUIZ_CONTRACT'] ?? '0x0000000000000000000000000000000000000000').trim() as `0x${string}`
@@ -223,6 +223,12 @@ function QuizPlayer({ quiz, onPass, onBack }: {
                   ? isLast ? 'All done! Mint your Soulbound badge.' : 'Moving to next question…'
                   : `Correct answer: "${shuffledOptions[shuffledCorrectIndex]}" — Quiz restarts from Q1.`}
               </div>
+              {question.explanation && (
+                <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: `1px solid ${ACC}22` }}>
+                  <div style={{ fontSize: '11px', fontWeight: 700, color: ACC, marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.4px' }}>💡 Did you know?</div>
+                  <div style={{ fontSize: '12px', color: '#94a3b8', lineHeight: 1.6 }}>{question.explanation}</div>
+                </div>
+              )}
             </div>
           </div>
           <button onClick={next} style={{
@@ -276,18 +282,41 @@ function MintBadge({ quiz, answers, onDone }: {
 
       {/* Badge preview */}
       <div style={{
-        background: `linear-gradient(135deg, ${ACC}18, #0d1424)`,
-        border: `2px solid ${ACC}44`, borderRadius: '20px',
-        padding: '28px', marginBottom: '20px', position: 'relative', overflow: 'hidden',
+        background: `linear-gradient(135deg, ${tier.bg}, #0d1424 70%)`,
+        border: `2px solid ${tier.border}`, borderRadius: '24px',
+        padding: '32px 28px', marginBottom: '20px', position: 'relative', overflow: 'hidden',
+        boxShadow: `0 0 40px ${tier.color}22, 0 0 80px ${tier.color}0a`,
       }}>
+        {/* Decorative glow circles */}
+        <div style={{ position: 'absolute', top: '-40px', right: '-40px', width: '120px', height: '120px', borderRadius: '50%', background: `radial-gradient(circle, ${tier.color}20 0%, transparent 70%)`, pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', bottom: '-30px', left: '-30px', width: '90px', height: '90px', borderRadius: '50%', background: `radial-gradient(circle, ${tier.color}18 0%, transparent 70%)`, pointerEvents: 'none' }} />
+
+        {/* Tier ribbon */}
         <div style={{
           position: 'absolute', top: 0, right: 0,
-          background: tier.color, borderRadius: '0 20px 0 10px',
-          padding: '4px 12px', fontSize: '11px', fontWeight: 900, color: '#000',
+          background: `linear-gradient(135deg, ${tier.color}, ${tier.color}cc)`,
+          borderRadius: '0 24px 0 12px', padding: '5px 16px',
+          fontSize: '11px', fontWeight: 900, color: '#000', letterSpacing: '0.5px',
         }}>{tier.label}</div>
-        <div style={{ fontSize: '52px', marginBottom: '10px' }}>{quiz.emoji}</div>
-        <div style={{ fontSize: '18px', fontWeight: 800, color: '#f1f5f9', marginBottom: '4px' }}>Tempo Quiz Badge #{quiz.id}</div>
-        <div style={{ fontSize: '12px', color: '#64748b' }}>Soulbound NFT · Non-transferable · Moderato</div>
+
+        {/* Badge emoji with ring */}
+        <div style={{
+          width: '84px', height: '84px', borderRadius: '50%', margin: '0 auto 12px',
+          background: `radial-gradient(circle, ${tier.color}20 0%, transparent 70%)`,
+          border: `2px solid ${tier.color}44`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '42px',
+          boxShadow: `0 0 20px ${tier.color}33`,
+        }}>{quiz.emoji}</div>
+
+        <div style={{ fontSize: '19px', fontWeight: 900, color: '#f1f5f9', marginBottom: '6px' }}>{quiz.title}</div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginBottom: '4px' }}>
+          <div style={{ width: '4px', height: '4px', borderRadius: '50%', background: tier.color }} />
+          <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>Soulbound · Non-transferable</span>
+          <div style={{ width: '4px', height: '4px', borderRadius: '50%', background: tier.color }} />
+        </div>
+        <div style={{ fontSize: '11px', color: tier.color, fontWeight: 700, fontFamily: 'monospace' }}>
+          Badge #{quiz.id} · Tempo Moderato
+        </div>
       </div>
 
       {!isSuccess && (
@@ -393,6 +422,51 @@ function SocialLinkDisabled({ icon, label }: { icon: React.ReactNode; label: str
       <span style={{ opacity: 0.2 }}>{icon}</span>
       <span>{label}</span>
       <span style={{ marginLeft: 'auto', fontSize: '10px', color: '#334155', fontStyle: 'italic' }}>Not yet</span>
+    </div>
+  )
+}
+
+// ── Next Unlock Countdown ──────────────────────────────────────────
+function NextUnlockCountdown({ unlockedCount, total }: { unlockedCount: number; total: number }) {
+  const [timeLeft, setTimeLeft] = useState('')
+
+  useEffect(() => {
+    if (unlockedCount >= total) return
+    function update() {
+      const nextId = unlockedCount + 1
+      const unlockTime = getTempoUnlockDate(nextId).getTime()
+      const diff = unlockTime - Date.now()
+      if (diff <= 0) { setTimeLeft('Unlocking soon!'); return }
+      const days = Math.floor(diff / (1000 * 60 * 60 * 24))
+      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
+      const seconds = Math.floor((diff % (1000 * 60)) / 1000)
+      setTimeLeft(days > 0 ? `${days}d ${hours}h ${minutes}m` : `${hours}h ${minutes}m ${seconds}s`)
+    }
+    update()
+    const id = setInterval(update, 1000)
+    return () => clearInterval(id)
+  }, [unlockedCount, total])
+
+  if (unlockedCount >= total) return null
+  const nextQuiz = TEMPO_QUIZZES[unlockedCount]
+
+  return (
+    <div style={{
+      background: 'linear-gradient(135deg, #0d1424, #111827)',
+      border: `1px solid ${ACC}33`, borderRadius: '12px',
+      padding: '12px 16px', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px',
+    }}>
+      <div style={{ fontSize: '20px' }}>⏳</div>
+      <div style={{ flex: 1 }}>
+        <div style={{ fontSize: '10px', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '2px' }}>Next Quiz Unlocks</div>
+        <div style={{ fontSize: '13px', fontWeight: 700, color: '#e2e8f0' }}>{nextQuiz?.emoji} {nextQuiz?.title}</div>
+      </div>
+      <div style={{
+        fontSize: '14px', fontWeight: 900, color: ACC,
+        fontFamily: 'monospace', background: `${ACC}15`,
+        borderRadius: '8px', padding: '5px 10px', whiteSpace: 'nowrap',
+      }}>{timeLeft}</div>
     </div>
   )
 }
@@ -550,6 +624,9 @@ export default function TempoDashboardPage() {
             <h2 style={{ fontSize: '13px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', margin: '0 0 12px', paddingBottom: '10px', borderBottom: `1px solid ${ACC}33` }}>
               Tempo Badges · {completedCount}/{TEMPO_QUIZZES.length} earned
             </h2>
+            {unlockedCount < TEMPO_QUIZZES.length && (
+              <NextUnlockCountdown unlockedCount={unlockedCount} total={TEMPO_QUIZZES.length} />
+            )}
             <div style={{ display: 'flex', gap: '8px', marginBottom: '12px', flexWrap: 'wrap' }}>
               {BADGE_TIERS.map(t => (
                 <div key={t.label} style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px', fontWeight: 700, color: t.color }}>

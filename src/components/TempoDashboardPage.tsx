@@ -245,7 +245,7 @@ function MintBadge({ quiz, answers, onDone }: {
       functionName: 'submitQuiz',
       args: [BigInt(quiz.id), answers.map(a => a as number)],
       chainId: tempoTestnet.id,
-      gas: BigInt(300000),
+      gas: BigInt(1500000),
     })
   }
 

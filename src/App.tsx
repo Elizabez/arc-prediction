@@ -2,16 +2,18 @@ import { useState } from 'react'
 import { WagmiProvider, useAccount, useBalance, useChainId, useSwitchChain } from 'wagmi'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ConnectKitProvider, ConnectKitButton } from 'connectkit'
-import { config, arcTestnet, tempoTestnet } from './wagmi'
+import { config, arcTestnet, tempoTestnet, robinhoodTestnet } from './wagmi'
 import DashboardPage from './components/DashboardPage'
 import TempoDashboardPage from './components/TempoDashboardPage'
+import RobinhoodDashboardPage from './components/RobinhoodDashboardPage'
 import './components/dashboard.css'
 
 const queryClient = new QueryClient()
 
 const CHAINS = [
-  { id: arcTestnet.id,   name: 'Arc Testnet',  emoji: '◈', color: '#3b82f6' },
-  { id: tempoTestnet.id, name: 'Tempo Testnet', emoji: '🎵', color: '#8b5cf6' },
+  { id: arcTestnet.id,        name: 'Arc Testnet',        emoji: '◈',  color: '#3b82f6' },
+  { id: tempoTestnet.id,      name: 'Tempo Testnet',      emoji: '🎵', color: '#8b5cf6' },
+  { id: robinhoodTestnet.id,  name: 'Robinhood Testnet',  emoji: '🔴', color: '#22c55e' },
 ]
 
 // ── Logo icon — quiz mark inside rounded hex ───────────────────────
@@ -39,12 +41,13 @@ function AppInner() {
   const { switchChain } = useSwitchChain()
   const [showChainMenu, setShowChainMenu] = useState(false)
 
-  const isArc   = chainId === arcTestnet.id
-  const isTempo = chainId === tempoTestnet.id
-  const isKnownChain = isArc || isTempo
+  const isArc       = chainId === arcTestnet.id
+  const isTempo     = chainId === tempoTestnet.id
+  const isRobinhood = chainId === robinhoodTestnet.id
+  const isKnownChain = isArc || isTempo || isRobinhood
 
   const activeChain = CHAINS.find(c => c.id === chainId)
-  const accentColor = isArc ? '#3b82f6' : isTempo ? '#8b5cf6' : '#64748b'
+  const accentColor = isArc ? '#3b82f6' : isTempo ? '#8b5cf6' : isRobinhood ? '#22c55e' : '#64748b'
 
   // Native token balance
   const { data: balance } = useBalance({ address: address ?? undefined })
@@ -146,7 +149,7 @@ function AppInner() {
           </div>
           <h1 style={{ fontSize: '32px', fontWeight: 900, marginBottom: '8px' }}>Testnet Quiz</h1>
           <p style={{ color: '#64748b', fontSize: '14px', marginBottom: '8px' }}>
-            <span style={{ color: '#3b82f6', fontWeight: 700 }}>Arc</span> &amp; <span style={{ color: '#8b5cf6', fontWeight: 700 }}>Tempo</span> blockchain knowledge
+            <span style={{ color: '#3b82f6', fontWeight: 700 }}>Arc</span> · <span style={{ color: '#8b5cf6', fontWeight: 700 }}>Tempo</span> · <span style={{ color: '#22c55e', fontWeight: 700 }}>Robinhood</span> blockchain knowledge
           </p>
           <p style={{ color: '#475569', marginBottom: '32px', lineHeight: 1.7, fontSize: '14px' }}>
             Answer questions correctly → earn <strong style={{ color: '#e2e8f0' }}>Soulbound NFT badges</strong> on-chain.<br />
@@ -175,8 +178,9 @@ function AppInner() {
         </div>
       ) : (
         <>
-          {isArc   && <DashboardPage />}
-          {isTempo && <TempoDashboardPage />}
+          {isArc       && <DashboardPage />}
+          {isTempo     && <TempoDashboardPage />}
+          {isRobinhood && <RobinhoodDashboardPage />}
         </>
       )}
 

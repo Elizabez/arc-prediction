@@ -20,9 +20,18 @@ export const tempoTestnet = {
   testnet: true,
 } as const
 
+export const robinhoodTestnet = {
+  id: 46630,
+  name: 'Robinhood Testnet',
+  nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+  rpcUrls: { default: { http: ['https://rpc.testnet.chain.robinhood.com'] } },
+  blockExplorers: { default: { name: 'Robinhood Explorer', url: 'https://explorer.testnet.chain.robinhood.com' } },
+  testnet: true,
+} as const
+
 export const config = createConfig(
   getDefaultConfig({
-    chains: [arcTestnet, tempoTestnet],
+    chains: [arcTestnet, tempoTestnet, robinhoodTestnet],
     client({ chain }) {
       return createClient({ chain, transport: http() })
     },

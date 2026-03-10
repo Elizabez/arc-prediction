@@ -468,15 +468,24 @@ export default function DashboardPage() {
       {/* Stats */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '24px' }}>
         {[
-          { icon: '🎓', value: `${completedCount}/${ARC_QUIZZES.length}`, label: 'Completed' },
-          { icon: '🏅', value: myBadgeCount?.toString() ?? '0',           label: 'My Badges' },
-          { icon: '🌍', value: totalMinted?.toString() ?? '—',            label: 'Total Minted' },
-          { icon: '🔓', value: `${unlockedCount}/${ARC_QUIZZES.length}`,  label: 'Unlocked' },
+          { icon: '🎓', value: `${completedCount}`, sub: `/ ${ARC_QUIZZES.length}`, label: 'Completed', color: '#3b82f6' },
+          { icon: '🏅', value: myBadgeCount?.toString() ?? '0', sub: '',             label: 'My Badges', color: '#f59e0b' },
+          { icon: '🌍', value: totalMinted?.toString() ?? '—', sub: '',              label: 'Total Minted', color: '#10b981' },
+          { icon: '🔓', value: `${unlockedCount}`, sub: `/ ${ARC_QUIZZES.length}`,  label: 'Unlocked', color: '#38bdf8' },
         ].map(s => (
-          <div key={s.label} style={{ background: '#0d1424', border: '1px solid #1e293b', borderRadius: '14px', padding: '18px 12px', textAlign: 'center' }}>
-            <div style={{ fontSize: '22px', marginBottom: '6px' }}>{s.icon}</div>
-            <div style={{ fontSize: '22px', fontWeight: 800, color: '#f1f5f9', fontFamily: 'monospace', lineHeight: 1 }}>{s.value}</div>
-            <div style={{ fontSize: '10px', color: '#64748b', marginTop: '4px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{s.label}</div>
+          <div key={s.label} style={{
+            background: 'linear-gradient(135deg, #0d1424 60%, #111827)',
+            border: `1px solid ${s.color}22`,
+            borderTop: `2px solid ${s.color}55`,
+            borderRadius: '14px', padding: '18px 14px', textAlign: 'center',
+            position: 'relative', overflow: 'hidden',
+          }}>
+            <div style={{ fontSize: '20px', marginBottom: '8px' }}>{s.icon}</div>
+            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: '2px' }}>
+              <span style={{ fontSize: '26px', fontWeight: 900, color: '#f1f5f9', fontFamily: "'Inter', monospace", lineHeight: 1 }}>{s.value}</span>
+              {s.sub && <span style={{ fontSize: '13px', color: '#475569', fontWeight: 600 }}>{s.sub}</span>}
+            </div>
+            <div style={{ fontSize: '10px', color: '#64748b', marginTop: '5px', textTransform: 'uppercase', letterSpacing: '0.6px', fontWeight: 600 }}>{s.label}</div>
           </div>
         ))}
       </div>
@@ -488,7 +497,7 @@ export default function DashboardPage() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
 
           {/* Level progress */}
-          <div style={{ background: '#0d1424', border: '1px solid #1e293b', borderRadius: '16px', padding: '22px' }}>
+          <div style={{ background: '#0d1424', border: `1px solid ${ACC}33`, borderRadius: '16px', padding: '22px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <span style={{ fontSize: '28px' }}>{level.icon}</span>
@@ -518,7 +527,7 @@ export default function DashboardPage() {
 
           {/* Badge grid */}
           <div>
-            <h2 style={{ fontSize: '13px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', margin: '0 0 12px', paddingBottom: '10px', borderBottom: '1px solid #1e293b' }}>
+            <h2 style={{ fontSize: '13px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', margin: '0 0 12px', paddingBottom: '10px', borderBottom: `1px solid ${ACC}33` }}>
               Arc Badges · {completedCount}/{ARC_QUIZZES.length} earned
             </h2>
             <div style={{ display: 'flex', gap: '8px', marginBottom: '12px', flexWrap: 'wrap' }}>
@@ -538,13 +547,25 @@ export default function DashboardPage() {
                 return (
                   <div key={quiz.id}
                     onClick={clickable ? () => { setActiveQuiz(quiz); setQuizState('playing') } : undefined}
-                    onMouseEnter={e => { if (clickable) (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-2px)' }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.transform = 'translateY(0)' }}
+                    onMouseEnter={e => {
+                      if (clickable) {
+                        const el = e.currentTarget as HTMLDivElement
+                        el.style.transform = 'translateY(-3px)'
+                        el.style.borderColor = ACC
+                        el.style.boxShadow = `0 6px 20px ${ACC}22`
+                      }
+                    }}
+                    onMouseLeave={e => {
+                      const el = e.currentTarget as HTMLDivElement
+                      el.style.transform = 'translateY(0)'
+                      el.style.borderColor = done ? tier.border : clickable ? `${ACC}30` : '#0f172a'
+                      el.style.boxShadow = 'none'
+                    }}
                     style={{
                       background: done ? tier.bg : '#0d1424',
                       border: `1px solid ${done ? tier.border : clickable ? `${ACC}30` : '#0f172a'}`,
                       borderRadius: '12px', padding: '14px 8px 12px', textAlign: 'center',
-                      opacity: unlocked ? 1 : 0.3, position: 'relative',
+                      opacity: unlocked ? 1 : 0.25, position: 'relative',
                       cursor: clickable ? 'pointer' : 'default',
                       transition: 'all 0.2s',
                     }}>
@@ -558,7 +579,14 @@ export default function DashboardPage() {
                     <div style={{ fontSize: '22px', marginBottom: '6px' }}>{done ? quiz.emoji : unlocked ? quiz.emoji : '🔒'}</div>
                     <div style={{ fontSize: '10px', fontWeight: 700, color: done ? '#e2e8f0' : '#475569', lineHeight: 1.3, marginBottom: '5px' }}>{quiz.title}</div>
                     {done && <div style={{ fontSize: '10px', color: tier.color, fontWeight: 700 }}>✓ SBT #{quiz.id}</div>}
-                    {clickable && <div style={{ fontSize: '10px', color: ACC, fontWeight: 700 }}>▶ Start</div>}
+                    {!done && !unlocked && <div style={{ fontSize: '9px', color: '#475569', fontWeight: 600, marginTop: '2px' }}>Locked</div>}
+                    {clickable && (
+                      <div style={{
+                        display: 'inline-block', fontSize: '9px', fontWeight: 800, color: '#fff',
+                        background: `linear-gradient(135deg, ${ACC}, ${ACC}cc)`,
+                        borderRadius: '999px', padding: '2px 8px', marginTop: '2px',
+                      }}>▶ Start</div>
+                    )}
                   </div>
                 )
               })}
@@ -606,8 +634,8 @@ export default function DashboardPage() {
               </div>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <SocialLink icon={<XIcon />}       label="@circle"             url="https://twitter.com/circle"         color="#fff" />
-              <SocialLink icon={<DiscordIcon />} label="Discord"             url="https://discord.gg/buildwitharc"    color="#5865f2" />
+              <SocialLink icon={<XIcon />}       label="@arc"                url="https://x.com/arc"                  color="#fff" />
+              <SocialLink icon={<DiscordIcon />} label="Discord"             url="https://discord.gg/buildonarc"     color="#5865f2" />
               <SocialLink icon={<GlobeIcon />}   label="arc.circle.com"      url="https://arc.circle.com"             color={ACC} />
               <SocialLink icon={<GlobeIcon />}   label="testnet.arcscan.app" url="https://testnet.arcscan.app"        color="#64748b" />
               <SocialLink icon={<GlobeIcon />}   label="faucet.circle.com"   url="https://faucet.circle.com"          color="#10b981" />
@@ -627,10 +655,10 @@ export default function DashboardPage() {
           <div style={{ background: '#0d1424', border: '1px solid #1e293b', borderRadius: '16px', overflow: 'hidden' }}>
             <div style={{ padding: '14px 18px', borderBottom: '1px solid #1e293b', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <XIcon />
-              <span style={{ fontSize: '13px', fontWeight: 700, color: '#e2e8f0' }}>Latest from @circle</span>
-              <a href="https://twitter.com/circle" target="_blank" rel="noreferrer" style={{ marginLeft: 'auto', fontSize: '11px', color: ACC, textDecoration: 'none' }}>View all →</a>
+              <span style={{ fontSize: '13px', fontWeight: 700, color: '#e2e8f0' }}>Latest from @arc</span>
+              <a href="https://x.com/arc" target="_blank" rel="noreferrer" style={{ marginLeft: 'auto', fontSize: '11px', color: ACC, textDecoration: 'none' }}>View all →</a>
             </div>
-            <TwitterFeed handle="circle" />
+            <TwitterFeed handle="arc" />
           </div>
 
         </div>

@@ -60,8 +60,10 @@ function AppInner() {
       {/* Navbar */}
       <nav style={{
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        padding: '10px 24px', borderBottom: '1px solid #1e293b',
-        background: '#0d1424', position: 'sticky', top: 0, zIndex: 100,
+        padding: '10px 24px', borderBottom: '1px solid rgba(255,255,255,0.06)',
+        background: 'rgba(10, 15, 26, 0.85)', backdropFilter: 'blur(20px)',
+        WebkitBackdropFilter: 'blur(20px)', position: 'sticky', top: 0, zIndex: 100,
+        boxShadow: '0 1px 0 rgba(255,255,255,0.04)',
       }}>
 
         {/* Logo */}
@@ -83,13 +85,15 @@ function AppInner() {
           {/* Native balance */}
           {isConnected && balText && (
             <div style={{
-              background: '#131c2e', border: `1px solid ${accentColor}30`,
-              borderRadius: '8px', padding: '5px 12px',
+              background: `rgba(13,20,36,0.7)`, border: `1px solid ${accentColor}25`,
+              borderRadius: '999px', padding: '5px 14px',
               fontSize: '12px', fontWeight: 700, color: '#e2e8f0',
               fontFamily: 'monospace', letterSpacing: '0.02em',
-              display: 'flex', alignItems: 'center', gap: '5px',
+              display: 'flex', alignItems: 'center', gap: '6px',
+              backdropFilter: 'blur(8px)',
+              boxShadow: `0 0 12px ${accentColor}15`,
             }}>
-              <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: accentColor, display: 'inline-block', flexShrink: 0 }} />
+              <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: accentColor, display: 'inline-block', flexShrink: 0, boxShadow: `0 0 6px ${accentColor}` }} />
               {balText}
             </div>
           )}

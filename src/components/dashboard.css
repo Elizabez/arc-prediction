@@ -1,6 +1,20 @@
 /* ── Global font ─────────────────────────────────────────────── */
 *, *::before, *::after { font-family: 'Inter', sans-serif; box-sizing: border-box; }
 
+/* ── Ambient background ──────────────────────────────────────── */
+body {
+  background: #0a0f1a;
+  background-image:
+    radial-gradient(ellipse 80% 40% at 15% 0%, rgba(59,130,246,0.07) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 30% at 85% 5%, rgba(139,92,246,0.06) 0%, transparent 60%);
+  background-attachment: fixed;
+}
+
+/* ── Glow on progress bar fill ───────────────────────────────── */
+.dash-level-fill {
+  box-shadow: 0 0 10px rgba(59,130,246,0.4);
+}
+
 /* ── Dashboard Page ──────────────────────────────────────────── */
 .dashboard-page {
   max-width: 900px;

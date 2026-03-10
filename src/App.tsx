@@ -49,11 +49,13 @@ function AppInner() {
   // Native token balance
   const { data: balance } = useBalance({ address: address ?? undefined })
   const balText = balance
-    ? `${parseFloat(balance.formatted).toFixed(2)} ${balance.symbol}`
+    ? parseFloat(balance.formatted) > 1e6
+      ? `∞ ${balance.symbol}`
+      : `${parseFloat(balance.formatted).toFixed(2)} ${balance.symbol}`
     : null
 
   return (
-    <div style={{ minHeight: '100vh', background: '#0a0f1a', color: '#e2e8f0', fontFamily: 'sans-serif' }}>
+    <div style={{ minHeight: '100vh', background: '#0a0f1a', color: '#e2e8f0', fontFamily: "'Inter', sans-serif" }}>
 
       {/* Navbar */}
       <nav style={{

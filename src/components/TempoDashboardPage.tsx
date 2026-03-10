@@ -476,15 +476,24 @@ export default function TempoDashboardPage() {
       {/* Stats */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '24px' }}>
         {[
-          { icon: '🎓', value: `${completedCount}/${TEMPO_QUIZZES.length}`, label: 'Completed' },
-          { icon: '🏅', value: myBadges?.toString() ?? '0',                 label: 'My Badges' },
-          { icon: '🌍', value: totalMinted?.toString() ?? '—',              label: 'Total Minted' },
-          { icon: '🔓', value: `${unlockedCount}/${TEMPO_QUIZZES.length}`,  label: 'Unlocked' },
+          { icon: '🎓', value: `${completedCount}`, sub: `/ ${TEMPO_QUIZZES.length}`, label: 'Completed', color: '#a78bfa' },
+          { icon: '🏅', value: myBadges?.toString() ?? '0', sub: '', label: 'My Badges', color: '#f59e0b' },
+          { icon: '🌍', value: totalMinted?.toString() ?? '—', sub: '', label: 'Total Minted', color: '#10b981' },
+          { icon: '🔓', value: `${unlockedCount}`, sub: `/ ${TEMPO_QUIZZES.length}`, label: 'Unlocked', color: '#38bdf8' },
         ].map(s => (
-          <div key={s.label} style={{ background: '#0d1424', border: `1px solid ${ACC}22`, borderRadius: '14px', padding: '18px 12px', textAlign: 'center' }}>
-            <div style={{ fontSize: '22px', marginBottom: '6px' }}>{s.icon}</div>
-            <div style={{ fontSize: '22px', fontWeight: 800, color: '#f1f5f9', fontFamily: 'monospace', lineHeight: 1 }}>{s.value}</div>
-            <div style={{ fontSize: '10px', color: '#64748b', marginTop: '4px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{s.label}</div>
+          <div key={s.label} style={{
+            background: 'linear-gradient(135deg, #0d1424 60%, #111827)',
+            border: `1px solid ${s.color}22`,
+            borderTop: `2px solid ${s.color}55`,
+            borderRadius: '14px', padding: '18px 14px', textAlign: 'center',
+            position: 'relative', overflow: 'hidden',
+          }}>
+            <div style={{ fontSize: '20px', marginBottom: '8px' }}>{s.icon}</div>
+            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: '2px' }}>
+              <span style={{ fontSize: '26px', fontWeight: 900, color: '#f1f5f9', fontFamily: "'Inter', monospace", lineHeight: 1 }}>{s.value}</span>
+              {s.sub && <span style={{ fontSize: '13px', color: '#475569', fontWeight: 600 }}>{s.sub}</span>}
+            </div>
+            <div style={{ fontSize: '10px', color: '#64748b', marginTop: '5px', textTransform: 'uppercase', letterSpacing: '0.6px', fontWeight: 600 }}>{s.label}</div>
           </div>
         ))}
       </div>
@@ -546,13 +555,27 @@ export default function TempoDashboardPage() {
                 return (
                   <div key={quiz.id}
                     onClick={clickable ? () => { setActiveQuiz(quiz); setQuizState('playing') } : undefined}
-                    onMouseEnter={e => { if (clickable) (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-2px)' }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.transform = 'translateY(0)' }}
+                    onMouseEnter={e => {
+                      if (clickable) {
+                        const el = e.currentTarget as HTMLDivElement
+                        el.style.transform = 'translateY(-3px)'
+                        el.style.borderColor = ACC
+                        el.style.boxShadow = `0 6px 20px ${ACC}22`
+                      }
+                    }}
+                    onMouseLeave={e => {
+                      const el = e.currentTarget as HTMLDivElement
+                      el.style.transform = 'translateY(0)'
+                      el.style.borderColor = done ? tier.border : clickable ? `${ACC}30` : '#0f172a'
+                      el.style.boxShadow = 'none'
+                    }}
                     style={{
-                      background: done ? tier.bg : '#0d1424',
+                      background: done
+                        ? `linear-gradient(135deg, ${tier.bg}, #0d1424)`
+                        : unlocked ? '#0d1424' : '#080d18',
                       border: `1px solid ${done ? tier.border : clickable ? `${ACC}30` : '#0f172a'}`,
                       borderRadius: '12px', padding: '14px 8px 12px', textAlign: 'center',
-                      opacity: unlocked ? 1 : 0.3, position: 'relative',
+                      opacity: unlocked ? 1 : 0.25, position: 'relative',
                       cursor: clickable ? 'pointer' : 'default',
                       transition: 'all 0.2s',
                     }}>
@@ -560,13 +583,26 @@ export default function TempoDashboardPage() {
                       <div style={{
                         position: 'absolute', top: 0, right: 0,
                         background: tier.color, borderRadius: '0 12px 0 8px',
-                        padding: '2px 6px', fontSize: '8px', fontWeight: 900, color: '#000',
+                        padding: '2px 6px', fontSize: '8px', fontWeight: 900, color: '#000', letterSpacing: '0.3px',
                       }}>{tier.label}</div>
                     )}
-                    <div style={{ fontSize: '22px', marginBottom: '6px' }}>{done ? quiz.emoji : unlocked ? quiz.emoji : '🔒'}</div>
-                    <div style={{ fontSize: '10px', fontWeight: 700, color: done ? '#e2e8f0' : '#475569', lineHeight: 1.3, marginBottom: '5px' }}>{quiz.title}</div>
-                    {done && <div style={{ fontSize: '10px', color: tier.color, fontWeight: 700 }}>✓ SBT #{quiz.id}</div>}
-                    {clickable && <div style={{ fontSize: '10px', color: ACC, fontWeight: 700 }}>▶ Start</div>}
+                    <div style={{ fontSize: '24px', marginBottom: '6px', filter: !unlocked ? 'grayscale(1)' : 'none' }}>
+                      {unlocked ? quiz.emoji : '🔒'}
+                    </div>
+                    <div style={{ fontSize: '10px', fontWeight: 700, color: done ? '#e2e8f0' : unlocked ? '#94a3b8' : '#334155', lineHeight: 1.3, marginBottom: '6px' }}>{quiz.title}</div>
+                    {done && (
+                      <div style={{ fontSize: '10px', color: tier.color, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px' }}>
+                        <span>✓</span><span>SBT #{quiz.id}</span>
+                      </div>
+                    )}
+                    {clickable && (
+                      <div style={{ fontSize: '10px', color: ACC, fontWeight: 700, background: `${ACC}15`, borderRadius: '999px', padding: '2px 8px', display: 'inline-block' }}>
+                        ▶ Start
+                      </div>
+                    )}
+                    {!unlocked && (
+                      <div style={{ fontSize: '9px', color: '#334155', fontWeight: 600 }}>Locked</div>
+                    )}
                   </div>
                 )
               })}

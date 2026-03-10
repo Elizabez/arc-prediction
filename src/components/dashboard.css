@@ -1,3 +1,6 @@
+/* ── Global font ─────────────────────────────────────────────── */
+*, *::before, *::after { font-family: 'Inter', sans-serif; box-sizing: border-box; }
+
 /* ── Dashboard Page ──────────────────────────────────────────── */
 .dashboard-page {
   max-width: 900px;

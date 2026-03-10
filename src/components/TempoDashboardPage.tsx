@@ -558,26 +558,27 @@ export default function TempoDashboardPage() {
                     onMouseEnter={e => {
                       if (clickable) {
                         const el = e.currentTarget as HTMLDivElement
-                        el.style.transform = 'translateY(-3px)'
-                        el.style.borderColor = ACC
-                        el.style.boxShadow = `0 6px 20px ${ACC}22`
+                        el.style.transform = 'translateY(-4px)'
+                        el.style.boxShadow = `0 0 28px ${tier.color}66, 0 0 10px ${tier.color}44, 0 8px 24px rgba(0,0,0,0.4)`
+                        el.style.borderColor = tier.color
                       }
                     }}
                     onMouseLeave={e => {
                       const el = e.currentTarget as HTMLDivElement
                       el.style.transform = 'translateY(0)'
-                      el.style.borderColor = done ? tier.border : clickable ? `${ACC}30` : '#0f172a'
-                      el.style.boxShadow = 'none'
+                      el.style.boxShadow = done ? 'none' : clickable ? `0 0 14px ${tier.color}33, 0 0 5px ${tier.color}22` : 'none'
+                      el.style.borderColor = done ? tier.border : clickable ? tier.border : '#0f172a'
                     }}
                     style={{
                       background: done
                         ? `linear-gradient(135deg, ${tier.bg}, #0d1424)`
-                        : unlocked ? '#0d1424' : '#080d18',
-                      border: `1px solid ${done ? tier.border : clickable ? `${ACC}30` : '#0f172a'}`,
+                        : clickable ? `linear-gradient(135deg, ${tier.bg}, #0d1424 70%)` : '#080d18',
+                      border: `1px solid ${done ? tier.border : clickable ? tier.border : '#0f172a'}`,
                       borderRadius: '12px', padding: '14px 8px 12px', textAlign: 'center',
                       opacity: unlocked ? 1 : 0.25, position: 'relative',
                       cursor: clickable ? 'pointer' : 'default',
-                      transition: 'all 0.2s',
+                      transition: 'all 0.25s ease',
+                      boxShadow: clickable ? `0 0 14px ${tier.color}33, 0 0 5px ${tier.color}22` : 'none',
                     }}>
                     {done && (
                       <div style={{

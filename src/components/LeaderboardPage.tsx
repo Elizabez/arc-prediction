@@ -42,18 +42,18 @@ const CACHE_TTL = 5 * 60 * 1000 // 5 minutes
 async function fetchLogs(
   client: ReturnType<typeof createPublicClient>,
   address: `0x${string}`
-): Promise<{ user: string }[]> {
+): Promise<{ logs: { user: string }[]; ok: boolean }> {
   try {
-    const logs = await (client as any).getLogs({
+    const raw = await (client as any).getLogs({
       address,
       event: BADGE_MINTED_EVENT,
       fromBlock: 0n,
       toBlock: 'latest',
     })
-    return logs.map((l: any) => ({ user: l.args.user as string }))
+    return { logs: raw.map((l: any) => ({ user: l.args.user as string })), ok: true }
   } catch (e) {
     console.warn('getLogs failed for', address, e)
-    return []
+    return { logs: [], ok: false }
   }
 }
 
@@ -61,7 +61,7 @@ function buildLeaderboard(
   arcLogs: { user: string }[],
   tempoLogs: { user: string }[],
   rhLogs: { user: string }[]
-): UserStats[] {
+) {
   const map = new Map<string, UserStats>()
   const bump = (logs: { user: string }[], chain: 'arc' | 'tempo' | 'robinhood') => {
     for (const { user } of logs) {
@@ -91,6 +91,7 @@ export default function LeaderboardPage({ onViewProfile }: { onViewProfile?: (ad
   const [loading, setLoading] = useState(true)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   const [tab, setTab] = useState<TabKey>('all')
+  const [chainOk, setChainOk] = useState({ arc: true, tempo: true, robinhood: true })
 
   const load = useCallback(async (force = false) => {
     setLoading(true)
@@ -98,23 +99,27 @@ export default function LeaderboardPage({ onViewProfile }: { onViewProfile?: (ad
       try {
         const raw = localStorage.getItem(CACHE_KEY)
         if (raw) {
-          const { data, ts } = JSON.parse(raw)
+          const { data, ts, ok } = JSON.parse(raw)
           if (Date.now() - ts < CACHE_TTL) {
-            setRows(data); setLastUpdated(new Date(ts)); setLoading(false); return
+            setRows(data); setLastUpdated(new Date(ts))
+            if (ok) setChainOk(ok)
+            setLoading(false); return
           }
         }
       } catch {}
     }
-    const [arc, tempo, rh] = await Promise.all([
+    const [arcRes, tempoRes, rhRes] = await Promise.all([
       fetchLogs(arcClient, ARC_CONTRACT),
       fetchLogs(tempoClient, TEMPO_CONTRACT),
       fetchLogs(rhClient, RH_CONTRACT),
     ])
-    const built = buildLeaderboard(arc, tempo, rh)
+    const ok = { arc: arcRes.ok, tempo: tempoRes.ok, robinhood: rhRes.ok }
+    setChainOk(ok)
+    const built = buildLeaderboard(arcRes.logs, tempoRes.logs, rhRes.logs)
     setRows(built)
     const ts = Date.now()
     setLastUpdated(new Date(ts))
-    try { localStorage.setItem(CACHE_KEY, JSON.stringify({ data: built, ts })) } catch {}
+    try { localStorage.setItem(CACHE_KEY, JSON.stringify({ data: built, ts, ok })) } catch {}
     setLoading(false)
   }, [])
 
@@ -328,23 +333,45 @@ export default function LeaderboardPage({ onViewProfile }: { onViewProfile?: (ad
       {/* Info footer */}
       <div style={{ marginTop: '16px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
         {[
-          { emoji: '◈', label: 'Arc Testnet', color: '#3b82f6', total: rows.reduce((s, r) => s + r.arc, 0) },
-          { emoji: '🎵', label: 'Tempo Moderato', color: '#8b5cf6', total: rows.reduce((s, r) => s + r.tempo, 0) },
-          { emoji: '🔴', label: 'Robinhood Chain', color: '#22c55e', total: rows.reduce((s, r) => s + r.robinhood, 0) },
-        ].map(c => (
-          <div key={c.label} style={{
-            flex: 1, minWidth: '120px', background: '#0d1424',
-            border: `1px solid ${c.color}22`, borderRadius: '10px', padding: '10px 14px',
-            display: 'flex', alignItems: 'center', gap: '8px',
-          }}>
-            <span style={{ fontSize: '16px' }}>{c.emoji}</span>
-            <div>
-              <div style={{ fontSize: '16px', fontWeight: 900, color: c.color }}>{c.total}</div>
-              <div style={{ fontSize: '10px', color: '#475569', fontWeight: 600 }}>{c.label}</div>
+          { key: 'arc' as const,       emoji: '◈',  label: 'Arc Testnet',    color: '#3b82f6', total: rows.reduce((s, r) => s + r.arc, 0) },
+          { key: 'tempo' as const,     emoji: '🎵', label: 'Tempo Moderato', color: '#8b5cf6', total: rows.reduce((s, r) => s + r.tempo, 0) },
+          { key: 'robinhood' as const, emoji: '🔴', label: 'Robinhood Chain', color: '#22c55e', total: rows.reduce((s, r) => s + r.robinhood, 0) },
+        ].map(c => {
+          const ok = chainOk[c.key]
+          return (
+            <div key={c.label} style={{
+              flex: 1, minWidth: '120px', background: '#0d1424',
+              border: `1px solid ${ok ? c.color + '22' : '#ef444433'}`,
+              borderRadius: '10px', padding: '10px 14px',
+              display: 'flex', alignItems: 'center', gap: '8px',
+            }}>
+              <span style={{ fontSize: '16px' }}>{c.emoji}</span>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: '16px', fontWeight: 900, color: ok ? c.color : '#64748b' }}>
+                  {ok ? c.total : '?'}
+                </div>
+                <div style={{ fontSize: '10px', color: '#475569', fontWeight: 600 }}>{c.label}</div>
+              </div>
+              {!ok && (
+                <div style={{ fontSize: '10px', color: '#ef4444', fontWeight: 700, background: '#ef444420', borderRadius: '4px', padding: '2px 6px', whiteSpace: 'nowrap' }}>
+                  RPC err
+                </div>
+              )}
             </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
+
+      {/* RPC warning */}
+      {(!chainOk.arc || !chainOk.tempo || !chainOk.robinhood) && (
+        <div style={{
+          marginTop: '10px', padding: '10px 14px', borderRadius: '10px',
+          background: '#ef444410', border: '1px solid #ef444430',
+          fontSize: '12px', color: '#f87171',
+        }}>
+          ⚠️ Some chains failed to load — the RPC may have block range limits. Try <button onClick={() => load(true)} style={{ background: 'none', border: 'none', color: '#f87171', cursor: 'pointer', textDecoration: 'underline', fontSize: '12px', padding: 0 }}>refreshing</button>.
+        </div>
+      )}
     </div>
   )
 }

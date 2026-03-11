@@ -77,9 +77,7 @@ function AppInner() {
   // Native token balance
   const { data: balance } = useBalance({ address: address ?? undefined })
   const balText = balance
-    ? parseFloat(balance.formatted) > 1e6
-      ? `∞ ${balance.symbol}`
-      : `${parseFloat(balance.formatted).toFixed(2)} ${balance.symbol}`
+    ? `${parseFloat(balance.formatted).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${balance.symbol}`
     : null
 
   return (

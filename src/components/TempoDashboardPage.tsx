@@ -479,6 +479,17 @@ export default function TempoDashboardPage() {
   const [correctAnswers, setCorrectAnswers] = useState<number[] | null>(null)
   const [copied, setCopied] = useState(false)
   const [unlockedCount] = useState(getTempoUnlockedCount())
+  const [communityCount, setCommunityCount] = useState<number | null>(null)
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('leaderboard_v4')
+      if (raw) {
+        const { data } = JSON.parse(raw)
+        if (Array.isArray(data)) setCommunityCount(data.filter((r: any) => r.tempo > 0).length)
+      }
+    } catch {}
+  }, [])
 
   const refUrl = `${APP_URL}?ref=${address?.slice(2, 10) ?? 'tempo'}&chain=tempo`
 
@@ -707,7 +718,14 @@ export default function TempoDashboardPage() {
           {/* Referral */}
           {isConnected && (
             <div style={{ background: '#0d1424', border: `1px solid ${ACC}33`, borderRadius: '16px', padding: '20px' }}>
-              <h2 style={{ fontSize: '14px', fontWeight: 800, color: '#e2e8f0', margin: '0 0 4px', display: 'flex', alignItems: 'center', gap: '6px' }}>🔗 Referral Link</h2>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                <h2 style={{ fontSize: '14px', fontWeight: 800, color: '#e2e8f0', margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>🔗 Referral Link</h2>
+                {communityCount !== null && (
+                  <span style={{ fontSize: '11px', fontWeight: 700, color: ACC, background: `${ACC}18`, borderRadius: '6px', padding: '2px 8px' }}>
+                    👥 {communityCount} người tham gia
+                  </span>
+                )}
+              </div>
               <p style={{ fontSize: '12px', color: '#64748b', margin: '0 0 12px' }}>Invite friends — earn Soulbound badges together</p>
               <div style={{ display: 'flex', gap: '7px', marginBottom: '8px' }}>
                 <div style={{ flex: 1, background: '#131c2e', border: `1px solid ${ACC}22`, borderRadius: '8px', padding: '8px 12px', fontSize: '11px', color: '#94a3b8', fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>

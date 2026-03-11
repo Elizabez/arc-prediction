@@ -38,14 +38,14 @@ const TABS: { key: TabKey; label: string; emoji: string; color: string }[] = [
 // ── Cache ──────────────────────────────────────────────────────────
 const CACHE_KEY = 'leaderboard_v4'
 const CACHE_TTL = 5 * 60 * 1000 // 5 minutes
-const CHUNK_KEY = 'leaderboard_chunks_v1' // persists chunk sizes across sessions
+const CHUNK_KEY = 'leaderboard_chunks_v2' // persists chunk sizes across sessions
 
 // Quiz launched 2026-03-10. 500k blocks at ~2s/block ≈ 11 days — covers all real mints.
 const RECENT_WINDOW = BigInt(500_000)
 const MAX_PARALLEL  = 10  // concurrent getLogs requests
 
 // Candidate chunk sizes to probe (largest first → fewest requests win)
-const PROBE_SIZES = [500_000n, 100_000n, 50_000n, 20_000n, 10_000n, 5_000n, 2_000n]
+const PROBE_SIZES = [500_000n, 100_000n, 50_000n, 20_000n, 10_000n, 5_000n, 2_000n, 1_000n, 500n, 100n]
 
 function loadChunkSizes(): Record<string, bigint> {
   try {
@@ -114,21 +114,15 @@ async function fetchLogs(
     } catch { /* fall through to full probe */ }
   }
 
-  // Stage 1 — full range (works on some RPCs like Robinhood)
-  try {
-    return { logs: mapLogs(await (client as any).getLogs({
-      address, event: BADGE_MINTED_EVENT, fromBlock: 0n, toBlock: 'latest',
-    })), ok: true }
-  } catch { /* fall through */ }
-
-  // Stage 2 — get current block number
+  // Stage 1 — get current block number
   let latest: bigint
   try { latest = await (client as any).getBlockNumber() }
   catch { return { logs: [], ok: false } }
 
   const fromBlock = latest > RECENT_WINDOW ? latest - RECENT_WINDOW : 0n
 
-  // Stage 3 — probe to find max allowed chunk size, then paginate efficiently.
+  // Stage 2 — probe to find max allowed chunk size, then paginate
+  // (avoids silent truncation from full-range queries on some RPCs)
   for (const probe of PROBE_SIZES) {
     const probeFrom = latest > probe ? latest - probe : 0n
     try {
@@ -142,6 +136,13 @@ async function fetchLogs(
       return { logs: [...rest, ...probeLogs], ok: true }
     } catch { /* try smaller probe */ }
   }
+
+  // Stage 3 — last resort: full range (some RPCs support unlimited range)
+  try {
+    return { logs: mapLogs(await (client as any).getLogs({
+      address, event: BADGE_MINTED_EVENT, fromBlock: 0n, toBlock: 'latest',
+    })), ok: true }
+  } catch {}
 
   return { logs: [], ok: false }
 }

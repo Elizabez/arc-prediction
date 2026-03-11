@@ -36,29 +36,51 @@ const TABS: { key: TabKey; label: string; emoji: string; color: string }[] = [
 ]
 
 // ── Cache ──────────────────────────────────────────────────────────
-const CACHE_KEY = 'leaderboard_v3'
+const CACHE_KEY = 'leaderboard_v4'
 const CACHE_TTL = 5 * 60 * 1000 // 5 minutes
 
-// Scan only the most recent N blocks — quiz launched 2026-03-10, so
-// 500k blocks at ~2s/block ≈ last 11 days, covers all real mints.
+// Quiz launched 2026-03-10. 500k blocks at ~2s/block ≈ 11 days — covers all real mints.
 const RECENT_WINDOW = BigInt(500_000)
-const CHUNK_SIZE    = BigInt(5_000)  // blocks per request in paginated mode
-const MAX_PARALLEL  = 5              // concurrent getLogs requests
+const MAX_PARALLEL  = 10  // concurrent getLogs requests
+
+// Candidate chunk sizes to probe (largest first → fewest requests win)
+const PROBE_SIZES = [500_000n, 100_000n, 50_000n, 20_000n, 10_000n, 5_000n, 2_000n]
 
 function mapLogs(raw: any[]): { user: string }[] {
   return raw.map((l: any) => ({ user: l.args.user as string }))
+}
+
+async function paginateRange(
+  client: ReturnType<typeof createPublicClient>,
+  address: `0x${string}`,
+  from: bigint, to: bigint, chunkSize: bigint
+): Promise<{ user: string }[]> {
+  const chunks: [bigint, bigint][] = []
+  for (let f = from; f <= to; f += chunkSize) {
+    chunks.push([f, f + chunkSize - 1n < to ? f + chunkSize - 1n : to])
+  }
+  const all: { user: string }[] = []
+  for (let i = 0; i < chunks.length; i += MAX_PARALLEL) {
+    const results = await Promise.allSettled(
+      chunks.slice(i, i + MAX_PARALLEL).map(([f, t]) =>
+        (client as any).getLogs({ address, event: BADGE_MINTED_EVENT, fromBlock: f, toBlock: t })
+      )
+    )
+    for (const r of results)
+      if (r.status === 'fulfilled') all.push(...mapLogs(r.value as any[]))
+  }
+  return all
 }
 
 async function fetchLogs(
   client: ReturnType<typeof createPublicClient>,
   address: `0x${string}`
 ): Promise<{ logs: { user: string }[]; ok: boolean }> {
-  // Stage 1 — full range (works on Robinhood / standard RPCs)
+  // Stage 1 — full range (Robinhood / standard RPCs)
   try {
-    const raw = await (client as any).getLogs({
+    return { logs: mapLogs(await (client as any).getLogs({
       address, event: BADGE_MINTED_EVENT, fromBlock: 0n, toBlock: 'latest',
-    })
-    return { logs: mapLogs(raw), ok: true }
+    })), ok: true }
   } catch { /* fall through */ }
 
   // Stage 2 — get current block number
@@ -68,34 +90,26 @@ async function fetchLogs(
 
   const fromBlock = latest > RECENT_WINDOW ? latest - RECENT_WINDOW : 0n
 
-  // Stage 3 — try recent window in one shot (RPCs with large-but-limited range)
-  try {
-    const raw = await (client as any).getLogs({
-      address, event: BADGE_MINTED_EVENT, fromBlock, toBlock: latest,
-    })
-    return { logs: mapLogs(raw), ok: true }
-  } catch { /* fall through */ }
+  // Stage 3 — probe to find max allowed chunk size, then paginate efficiently.
+  // Each probe queries only the last N blocks. First one that succeeds tells us
+  // the RPC's range limit → use that size for the full scan (fewer total requests).
+  // Example: if Arc allows 10k, we use 10k chunks → 50 chunks / 10 parallel = 5 batches ≈ 1 s
+  for (const probe of PROBE_SIZES) {
+    const probeFrom = latest > probe ? latest - probe : 0n
+    try {
+      const raw = await (client as any).getLogs({
+        address, event: BADGE_MINTED_EVENT, fromBlock: probeFrom, toBlock: latest,
+      })
+      const probeLogs = mapLogs(raw)
+      // Probe covered the full window → done in 1 request
+      if (probeFrom <= fromBlock) return { logs: probeLogs, ok: true }
+      // Probe worked but only partial — scan the remainder with same chunk size
+      const rest = await paginateRange(client, address, fromBlock, probeFrom - 1n, probe)
+      return { logs: [...rest, ...probeLogs], ok: true }
+    } catch { /* try smaller probe */ }
+  }
 
-  // Stage 4 — parallel chunked paginate over recent window
-  // 500k / 5k = 100 chunks → 20 batches of 5 → ~4 s at 200 ms/batch
-  const chunks: [bigint, bigint][] = []
-  for (let f = fromBlock; f <= latest; f += CHUNK_SIZE) {
-    const t = f + CHUNK_SIZE - 1n < latest ? f + CHUNK_SIZE - 1n : latest
-    chunks.push([f, t])
-  }
-  const allLogs: { user: string }[] = []
-  for (let i = 0; i < chunks.length; i += MAX_PARALLEL) {
-    const batch = chunks.slice(i, i + MAX_PARALLEL)
-    const results = await Promise.allSettled(
-      batch.map(([f, t]) => (client as any).getLogs({
-        address, event: BADGE_MINTED_EVENT, fromBlock: f, toBlock: t,
-      }))
-    )
-    for (const r of results) {
-      if (r.status === 'fulfilled') allLogs.push(...mapLogs(r.value as any[]))
-    }
-  }
-  return { logs: allLogs, ok: true }
+  return { logs: [], ok: false }
 }
 
 function buildLeaderboard(

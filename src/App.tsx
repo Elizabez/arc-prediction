@@ -94,8 +94,14 @@ function AppInner() {
         boxShadow: '0 1px 0 rgba(255,255,255,0.04)',
       }}>
 
-        {/* Logo */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '9px' }}>
+        {/* Logo — click to go home when on leaderboard / profile */}
+        <div
+          onClick={() => { if (page !== 'chain') goBack() }}
+          style={{
+            display: 'flex', alignItems: 'center', gap: '9px',
+            cursor: page !== 'chain' ? 'pointer' : 'default',
+          }}
+        >
           <TQIcon color={accentColor} />
           <div style={{ lineHeight: 1 }}>
             <div style={{ fontSize: '9px', fontWeight: 800, color: '#475569', letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: '2px' }}>
@@ -197,7 +203,7 @@ function AppInner() {
       {page === 'profile' && profileAddress ? (
         <ProfilePage profileAddress={profileAddress} connectedAddress={address} onBack={goBack} />
       ) : page === 'leaderboard' ? (
-        <LeaderboardPage onViewProfile={goProfile} />
+        <LeaderboardPage onViewProfile={goProfile} onBack={goBack} />
       ) : !isConnected ? (
         <div style={{ maxWidth: '960px', margin: '0 auto', padding: '56px 24px 80px' }}>
 

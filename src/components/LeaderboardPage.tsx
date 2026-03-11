@@ -36,13 +36,16 @@ const TABS: { key: TabKey; label: string; emoji: string; color: string }[] = [
 ]
 
 // ── Cache ──────────────────────────────────────────────────────────
-const CACHE_KEY = 'leaderboard_v1'
+const CACHE_KEY = 'leaderboard_v2'
 const CACHE_TTL = 5 * 60 * 1000 // 5 minutes
+
+const CHUNK_SIZE = BigInt(10_000) // blocks per paginated request
 
 async function fetchLogs(
   client: ReturnType<typeof createPublicClient>,
   address: `0x${string}`
 ): Promise<{ logs: { user: string }[]; ok: boolean }> {
+  // Try full range first (works on most standard RPCs)
   try {
     const raw = await (client as any).getLogs({
       address,
@@ -51,8 +54,31 @@ async function fetchLogs(
       toBlock: 'latest',
     })
     return { logs: raw.map((l: any) => ({ user: l.args.user as string })), ok: true }
+  } catch {
+    // RPC rejected full range — fall through to paginated approach
+  }
+
+  // Paginated fallback: query in CHUNK_SIZE-block windows
+  try {
+    const latest: bigint = await (client as any).getBlockNumber()
+    const allLogs: { user: string }[] = []
+    for (let from = 0n; from <= latest; from += CHUNK_SIZE) {
+      const to = from + CHUNK_SIZE - 1n < latest ? from + CHUNK_SIZE - 1n : latest
+      try {
+        const raw = await (client as any).getLogs({
+          address,
+          event: BADGE_MINTED_EVENT,
+          fromBlock: from,
+          toBlock: to,
+        })
+        allLogs.push(...raw.map((l: any) => ({ user: l.args.user as string })))
+      } catch {
+        // skip failed chunk and continue
+      }
+    }
+    return { logs: allLogs, ok: true }
   } catch (e) {
-    console.warn('getLogs failed for', address, e)
+    console.warn('getLogs failed entirely for', address, e)
     return { logs: [], ok: false }
   }
 }
@@ -85,7 +111,13 @@ function fmt(addr: string) {
 const RANK_ICONS: Record<number, string> = { 1: '🥇', 2: '🥈', 3: '🥉' }
 
 // ── Component ──────────────────────────────────────────────────────
-export default function LeaderboardPage({ onViewProfile }: { onViewProfile?: (addr: string) => void }) {
+export default function LeaderboardPage({
+  onViewProfile,
+  onBack,
+}: {
+  onViewProfile?: (addr: string) => void
+  onBack?: () => void
+}) {
   const { address } = useAccount()
   const [rows, setRows] = useState<UserStats[]>([])
   const [loading, setLoading] = useState(true)
@@ -141,18 +173,33 @@ export default function LeaderboardPage({ onViewProfile }: { onViewProfile?: (ad
 
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
-        <div>
-          <h1 style={{ fontSize: '24px', fontWeight: 900, color: '#f1f5f9', margin: '0 0 4px', letterSpacing: '-0.5px' }}>
-            🏆 Leaderboard
-          </h1>
-          <p style={{ color: '#64748b', fontSize: '13px', margin: 0 }}>
-            {totalBadges > 0 ? `${totalBadges} total badges · ${rows.length} unique addresses` : 'Loading on-chain data…'}
-            {lastUpdated && (
-              <span style={{ marginLeft: '8px', color: '#334155' }}>
-                · Updated {lastUpdated.toLocaleTimeString()}
-              </span>
-            )}
-          </p>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+          {/* Back button */}
+          {onBack && (
+            <button onClick={onBack} style={{
+              marginTop: '2px', flexShrink: 0,
+              background: '#1e293b', border: '1px solid #334155',
+              borderRadius: '8px', color: '#94a3b8',
+              cursor: 'pointer', fontWeight: 700, fontSize: '13px',
+              padding: '6px 12px', display: 'flex', alignItems: 'center', gap: '5px',
+              transition: 'all 0.15s',
+            }}>
+              ← Back
+            </button>
+          )}
+          <div>
+            <h1 style={{ fontSize: '24px', fontWeight: 900, color: '#f1f5f9', margin: '0 0 4px', letterSpacing: '-0.5px' }}>
+              🏆 Leaderboard
+            </h1>
+            <p style={{ color: '#64748b', fontSize: '13px', margin: 0 }}>
+              {totalBadges > 0 ? `${totalBadges} total badges · ${rows.length} unique addresses` : 'Loading on-chain data…'}
+              {lastUpdated && (
+                <span style={{ marginLeft: '8px', color: '#334155' }}>
+                  · Updated {lastUpdated.toLocaleTimeString()}
+                </span>
+              )}
+            </p>
+          </div>
         </div>
         <button onClick={() => load(true)} disabled={loading} style={{
           background: '#1e293b', border: '1px solid #334155',

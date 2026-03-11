@@ -85,7 +85,7 @@ function fmt(addr: string) {
 const RANK_ICONS: Record<number, string> = { 1: '🥇', 2: '🥈', 3: '🥉' }
 
 // ── Component ──────────────────────────────────────────────────────
-export default function LeaderboardPage() {
+export default function LeaderboardPage({ onViewProfile }: { onViewProfile?: (addr: string) => void }) {
   const { address } = useAccount()
   const [rows, setRows] = useState<UserStats[]>([])
   const [loading, setLoading] = useState(true)
@@ -269,7 +269,13 @@ export default function LeaderboardPage() {
               </div>
 
               {/* Address */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div
+                onClick={() => onViewProfile?.(row.address)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '8px',
+                  cursor: onViewProfile ? 'pointer' : 'default',
+                }}
+              >
                 <div style={{
                   width: '26px', height: '26px', borderRadius: '50%', flexShrink: 0,
                   background: `linear-gradient(135deg, #${row.address.slice(2, 8)}, #${row.address.slice(-6)})`,
@@ -280,6 +286,7 @@ export default function LeaderboardPage() {
                     {fmt(row.address)}
                   </span>
                   {isMe && <span style={{ marginLeft: '6px', fontSize: '10px', color: '#3b82f6', fontWeight: 800 }}>YOU</span>}
+                  {onViewProfile && <span style={{ marginLeft: '5px', fontSize: '10px', color: '#334155' }}>→</span>}
                 </div>
               </div>
 

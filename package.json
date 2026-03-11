@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@tanstack/react-query": "^5.62.0",
+    "@vercel/og": "^0.11.1",
     "connectkit": "^1.9.1",
     "lightweight-charts": "^5.1.0",
     "react": "^18.3.1",

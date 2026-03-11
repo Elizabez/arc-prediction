@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { WagmiProvider, useAccount, useBalance, useChainId, useSwitchChain } from 'wagmi'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ConnectKitProvider, ConnectKitButton } from 'connectkit'
@@ -7,6 +7,7 @@ import DashboardPage from './components/DashboardPage'
 import TempoDashboardPage from './components/TempoDashboardPage'
 import RobinhoodDashboardPage from './components/RobinhoodDashboardPage'
 import LeaderboardPage from './components/LeaderboardPage'
+import ProfilePage from './components/ProfilePage'
 import './components/dashboard.css'
 
 const queryClient = new QueryClient()
@@ -41,7 +42,29 @@ function AppInner() {
   const chainId = useChainId()
   const { switchChain } = useSwitchChain()
   const [showChainMenu, setShowChainMenu] = useState(false)
-  const [page, setPage] = useState<'chain' | 'leaderboard'>('chain')
+  const [page, setPage] = useState<'chain' | 'leaderboard' | 'profile'>('chain')
+  const [profileAddress, setProfileAddress] = useState('')
+
+  // Handle ?profile=0x... URL param on load
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const addr = params.get('profile')
+    if (addr && addr.startsWith('0x')) {
+      setProfileAddress(addr)
+      setPage('profile')
+    }
+  }, [])
+
+  function goProfile(addr: string) {
+    setProfileAddress(addr)
+    setPage('profile')
+    window.history.pushState({}, '', `/?profile=${addr}`)
+  }
+
+  function goBack() {
+    setPage('chain')
+    window.history.pushState({}, '', '/')
+  }
 
   const isArc       = chainId === arcTestnet.id
   const isTempo     = chainId === tempoTestnet.id
@@ -103,6 +126,20 @@ function AppInner() {
             </div>
           )}
 
+          {/* Profile button (connected only) */}
+          {isConnected && address && (
+            <button onClick={() => page === 'profile' && profileAddress === address ? goBack() : goProfile(address)} style={{
+              display: 'flex', alignItems: 'center', gap: '5px',
+              background: page === 'profile' ? '#8b5cf622' : '#1e293b',
+              border: `1px solid ${page === 'profile' ? '#8b5cf666' : '#334155'}`,
+              borderRadius: '8px', color: page === 'profile' ? '#a78bfa' : '#94a3b8',
+              cursor: 'pointer', fontWeight: 700, fontSize: '12px', padding: '6px 12px',
+              transition: 'all 0.15s',
+            }}>
+              👤 Me
+            </button>
+          )}
+
           {/* Leaderboard button */}
           <button onClick={() => setPage(p => p === 'leaderboard' ? 'chain' : 'leaderboard')} style={{
             display: 'flex', alignItems: 'center', gap: '5px',
@@ -157,8 +194,10 @@ function AppInner() {
       </nav>
 
       {/* Content */}
-      {page === 'leaderboard' ? (
-        <LeaderboardPage />
+      {page === 'profile' && profileAddress ? (
+        <ProfilePage profileAddress={profileAddress} connectedAddress={address} onBack={goBack} />
+      ) : page === 'leaderboard' ? (
+        <LeaderboardPage onViewProfile={goProfile} />
       ) : !isConnected ? (
         <div style={{ maxWidth: '960px', margin: '0 auto', padding: '56px 24px 80px' }}>
 

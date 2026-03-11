@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
 import { TEMPO_QUIZ_ABI, TEMPO_QUIZZES, getTempoUnlockedCount, getTempoUnlockDate, type QuizData } from './TempoQuizData'
 import { tempoTestnet } from '../wagmi'
+import { REFERRAL_ABI, REFERRAL_CONTRACT, getStoredRefCode, resolveRefCode } from './referral'
 
 const TEMPO_QUIZ_CONTRACT = (import.meta.env['VITE_TEMPO_QUIZ_CONTRACT'] ?? '0x0000000000000000000000000000000000000000').trim() as `0x${string}`
 const APP_URL = 'https://www.testnetquiz.xyz'
@@ -254,8 +255,28 @@ function MintBadge({ quiz, answers, onDone }: {
   const { address } = useAccount()
   const { writeContract, data: hash, isPending, error } = useWriteContract()
   const { isSuccess, isLoading: isConfirming } = useWaitForTransactionReceipt({ hash })
+  const { writeContract: refWrite } = useWriteContract()
+  const [refTracked, setRefTracked] = useState(false)
   const tier = getBadgeTier(quiz.id)
-  const refUrl = `${APP_URL}?ref=${address?.slice(2, 10) ?? 'tempo'}&chain=tempo`
+  const refUrl = `${APP_URL}?ref=${address?.slice(2, 10) ?? 'tempo'}`
+
+  // After mint confirmed: resolve ref code → full address → trackReferral on-chain
+  useEffect(() => {
+    if (!isSuccess || refTracked || !REFERRAL_CONTRACT || !address) return
+    const code = getStoredRefCode()
+    if (!code) return
+    setRefTracked(true)
+    resolveRefCode(code, tempoTestnet.rpcUrls.default.http[0], TEMPO_QUIZ_CONTRACT).then(referrer => {
+      if (!referrer || referrer.toLowerCase() === address.toLowerCase()) return
+      refWrite({
+        address: REFERRAL_CONTRACT, abi: REFERRAL_ABI,
+        functionName: 'trackReferral',
+        args: [referrer],
+        chainId: tempoTestnet.id,
+        gas: BigInt(500000), // Tempo TIP-1000 needs explicit gas
+      })
+    })
+  }, [isSuccess, refTracked, address, refWrite])
 
   function handleMint() {
     writeContract({
@@ -479,19 +500,7 @@ export default function TempoDashboardPage() {
   const [correctAnswers, setCorrectAnswers] = useState<number[] | null>(null)
   const [copied, setCopied] = useState(false)
   const [unlockedCount] = useState(getTempoUnlockedCount())
-  const [communityCount, setCommunityCount] = useState<number | null>(null)
-
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem('leaderboard_v4')
-      if (raw) {
-        const { data } = JSON.parse(raw)
-        if (Array.isArray(data)) setCommunityCount(data.filter((r: any) => r.tempo > 0).length)
-      }
-    } catch {}
-  }, [])
-
-  const refUrl = `${APP_URL}?ref=${address?.slice(2, 10) ?? 'tempo'}&chain=tempo`
+  const refUrl = `${APP_URL}?ref=${address?.slice(2, 10) ?? 'tempo'}`
 
   const { data: progressData, refetch } = useReadContract({
     address: TEMPO_QUIZ_CONTRACT, abi: TEMPO_QUIZ_ABI, functionName: 'getUserProgress',
@@ -506,6 +515,11 @@ export default function TempoDashboardPage() {
     address: TEMPO_QUIZ_CONTRACT, abi: TEMPO_QUIZ_ABI, functionName: 'balanceOf',
     args: address ? [address] : undefined,
     chainId: tempoTestnet.id, query: { enabled: !!address },
+  })
+  const { data: myRefCount } = useReadContract({
+    address: REFERRAL_CONTRACT, abi: REFERRAL_ABI, functionName: 'getReferralCount',
+    args: address ? [address] : undefined,
+    chainId: tempoTestnet.id, query: { enabled: !!address && !!REFERRAL_CONTRACT },
   })
 
   const progressArr = progressData ? [...progressData] : Array(TEMPO_QUIZZES.length).fill(false)
@@ -720,9 +734,9 @@ export default function TempoDashboardPage() {
             <div style={{ background: '#0d1424', border: `1px solid ${ACC}33`, borderRadius: '16px', padding: '20px' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
                 <h2 style={{ fontSize: '14px', fontWeight: 800, color: '#e2e8f0', margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>🔗 Referral Link</h2>
-                {communityCount !== null && (
+                {myRefCount !== undefined && (
                   <span style={{ fontSize: '11px', fontWeight: 700, color: ACC, background: `${ACC}18`, borderRadius: '6px', padding: '2px 8px' }}>
-                    👥 {communityCount} người tham gia
+                    👥 {myRefCount.toString()} invited
                   </span>
                 )}
               </div>

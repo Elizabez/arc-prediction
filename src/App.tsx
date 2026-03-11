@@ -8,6 +8,7 @@ import TempoDashboardPage from './components/TempoDashboardPage'
 import RobinhoodDashboardPage from './components/RobinhoodDashboardPage'
 import LeaderboardPage from './components/LeaderboardPage'
 import ProfilePage from './components/ProfilePage'
+import { storeRefCode } from './components/referral'
 import './components/dashboard.css'
 
 const queryClient = new QueryClient()
@@ -44,10 +45,21 @@ function AppInner() {
   const [showChainMenu, setShowChainMenu] = useState(false)
   const [page, setPage] = useState<'chain' | 'leaderboard' | 'profile'>('chain')
   const [profileAddress, setProfileAddress] = useState('')
+  const [refToast, setRefToast] = useState<string | null>(null)
 
-  // Handle ?profile=0x... URL param on load
+  // Handle URL params on load
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
+
+    // ?ref=XXXXXXXX — store ref code, show toast
+    const ref = params.get('ref')
+    if (ref && /^[0-9a-fA-F]{8}$/.test(ref)) {
+      storeRefCode(ref)
+      setRefToast(ref.toLowerCase())
+      setTimeout(() => setRefToast(null), 4000)
+    }
+
+    // ?profile=0x...
     const addr = params.get('profile')
     if (addr && addr.startsWith('0x')) {
       setProfileAddress(addr)
@@ -385,6 +397,24 @@ function AppInner() {
 
       {showChainMenu && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 99 }} onClick={() => setShowChainMenu(false)} />
+      )}
+
+      {/* Referral activated toast */}
+      {refToast && (
+        <div style={{
+          position: 'fixed', bottom: '24px', right: '24px', zIndex: 999,
+          background: '#0d1424', border: '1px solid #10b98155',
+          borderRadius: '12px', padding: '12px 16px',
+          display: 'flex', alignItems: 'center', gap: '10px',
+          boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+          animation: 'fadeIn 0.2s ease',
+        }}>
+          <span style={{ fontSize: '18px' }}>🔗</span>
+          <div>
+            <div style={{ fontSize: '13px', fontWeight: 700, color: '#10b981' }}>Referral link activated!</div>
+            <div style={{ fontSize: '11px', color: '#64748b' }}>Referrer: {refToast}</div>
+          </div>
+        </div>
       )}
     </div>
   )

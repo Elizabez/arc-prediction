@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
 import { ARC_QUIZ_ABI, ARC_QUIZZES, getArcUnlockedCount, getArcUnlockDate, type QuizData } from './ArcQuizData'
 import { arcTestnet } from '../wagmi'
+import { REFERRAL_ABI, REFERRAL_CONTRACT, getStoredRefCode, resolveRefCode } from './referral'
 
 const QUIZ_CONTRACT = (import.meta.env['VITE_QUIZ_CONTRACT'] ?? '0x0000000000000000000000000000000000000000').trim() as `0x${string}`
 const APP_URL = 'https://www.testnetquiz.xyz'
@@ -262,8 +263,27 @@ function MintBadge({ quiz, answers, onDone }: {
   const { address } = useAccount()
   const { writeContract, data: hash, isPending, error } = useWriteContract()
   const { isSuccess, isLoading: isConfirming } = useWaitForTransactionReceipt({ hash })
+  const { writeContract: refWrite } = useWriteContract()
+  const [refTracked, setRefTracked] = useState(false)
   const tier = getBadgeTier(quiz.id)
   const refUrl = `${APP_URL}?ref=${address?.slice(2, 10) ?? 'arc'}`
+
+  // After mint confirmed: resolve ref code → full address → trackReferral on-chain
+  useEffect(() => {
+    if (!isSuccess || refTracked || !REFERRAL_CONTRACT || !address) return
+    const code = getStoredRefCode()
+    if (!code) return
+    setRefTracked(true)
+    resolveRefCode(code, arcTestnet.rpcUrls.default.http[0], QUIZ_CONTRACT).then(referrer => {
+      if (!referrer || referrer.toLowerCase() === address.toLowerCase()) return
+      refWrite({
+        address: REFERRAL_CONTRACT, abi: REFERRAL_ABI,
+        functionName: 'trackReferral',
+        args: [referrer],
+        chainId: arcTestnet.id,
+      })
+    })
+  }, [isSuccess, refTracked, address, refWrite])
 
   function handleMint() {
     writeContract({
@@ -489,6 +509,11 @@ export default function DashboardPage() {
     query: { enabled: !!address && QUIZ_CONTRACT !== '0x0000000000000000000000000000000000000000' },
     chainId: arcTestnet.id,
   })
+  const { data: myRefCount } = useReadContract({
+    address: REFERRAL_CONTRACT, abi: REFERRAL_ABI, functionName: 'getReferralCount',
+    args: address ? [address] : undefined,
+    chainId: arcTestnet.id, query: { enabled: !!address && !!REFERRAL_CONTRACT },
+  })
 
   const progressArr = progress ? [...progress] : Array(ARC_QUIZZES.length).fill(false)
   const completedCount = progressArr.filter(Boolean).length
@@ -693,7 +718,14 @@ export default function DashboardPage() {
           {/* Referral */}
           {isConnected && (
             <div style={{ background: '#0d1424', border: '1px solid #1e293b', borderRadius: '16px', padding: '20px' }}>
-              <h2 style={{ fontSize: '14px', fontWeight: 800, color: '#e2e8f0', margin: '0 0 4px', display: 'flex', alignItems: 'center', gap: '6px' }}>🔗 Referral Link</h2>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                <h2 style={{ fontSize: '14px', fontWeight: 800, color: '#e2e8f0', margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>🔗 Referral Link</h2>
+                {myRefCount !== undefined && (
+                  <span style={{ fontSize: '11px', fontWeight: 700, color: ACC, background: `${ACC}18`, borderRadius: '6px', padding: '2px 8px' }}>
+                    👥 {myRefCount.toString()} invited
+                  </span>
+                )}
+              </div>
               <p style={{ fontSize: '12px', color: '#64748b', margin: '0 0 12px' }}>Invite friends — earn Soulbound badges together</p>
               <div style={{ display: 'flex', gap: '7px', marginBottom: '8px' }}>
                 <div style={{ flex: 1, background: '#131c2e', border: '1px solid #1e293b', borderRadius: '8px', padding: '8px 12px', fontSize: '11px', color: '#94a3b8', fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>

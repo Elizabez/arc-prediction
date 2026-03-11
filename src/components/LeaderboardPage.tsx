@@ -38,6 +38,7 @@ const TABS: { key: TabKey; label: string; emoji: string; color: string }[] = [
 // ── Cache ──────────────────────────────────────────────────────────
 const CACHE_KEY = 'leaderboard_v4'
 const CACHE_TTL = 5 * 60 * 1000 // 5 minutes
+const CHUNK_KEY = 'leaderboard_chunks_v1' // persists chunk sizes across sessions
 
 // Quiz launched 2026-03-10. 500k blocks at ~2s/block ≈ 11 days — covers all real mints.
 const RECENT_WINDOW = BigInt(500_000)
@@ -45,6 +46,30 @@ const MAX_PARALLEL  = 10  // concurrent getLogs requests
 
 // Candidate chunk sizes to probe (largest first → fewest requests win)
 const PROBE_SIZES = [500_000n, 100_000n, 50_000n, 20_000n, 10_000n, 5_000n, 2_000n]
+
+function loadChunkSizes(): Record<string, bigint> {
+  try {
+    const raw = localStorage.getItem(CHUNK_KEY)
+    if (raw) {
+      const parsed = JSON.parse(raw)
+      const result: Record<string, bigint> = {}
+      for (const [k, v] of Object.entries(parsed))
+        if (typeof v === 'string') result[k] = BigInt(v)
+      return result
+    }
+  } catch {}
+  return {}
+}
+
+function saveChunkSize(chainKey: string, size: bigint) {
+  const sizes = loadChunkSizes()
+  sizes[chainKey] = size
+  try {
+    const serialized: Record<string, string> = {}
+    for (const [k, v] of Object.entries(sizes)) serialized[k] = v.toString()
+    localStorage.setItem(CHUNK_KEY, JSON.stringify(serialized))
+  } catch {}
+}
 
 function mapLogs(raw: any[]): { user: string }[] {
   return raw.map((l: any) => ({ user: l.args.user as string }))
@@ -74,9 +99,22 @@ async function paginateRange(
 
 async function fetchLogs(
   client: ReturnType<typeof createPublicClient>,
-  address: `0x${string}`
+  address: `0x${string}`,
+  chainKey: string
 ): Promise<{ logs: { user: string }[]; ok: boolean }> {
-  // Stage 1 — full range (Robinhood / standard RPCs)
+  const knownChunk = loadChunkSizes()[chainKey]
+
+  // Fast path: skip all probing if we already know the working chunk size
+  if (knownChunk) {
+    try {
+      const latest = await (client as any).getBlockNumber() as bigint
+      const fromBlock = latest > RECENT_WINDOW ? latest - RECENT_WINDOW : 0n
+      const logs = await paginateRange(client, address, fromBlock, latest, knownChunk)
+      return { logs, ok: true }
+    } catch { /* fall through to full probe */ }
+  }
+
+  // Stage 1 — full range (works on some RPCs like Robinhood)
   try {
     return { logs: mapLogs(await (client as any).getLogs({
       address, event: BADGE_MINTED_EVENT, fromBlock: 0n, toBlock: 'latest',
@@ -91,9 +129,6 @@ async function fetchLogs(
   const fromBlock = latest > RECENT_WINDOW ? latest - RECENT_WINDOW : 0n
 
   // Stage 3 — probe to find max allowed chunk size, then paginate efficiently.
-  // Each probe queries only the last N blocks. First one that succeeds tells us
-  // the RPC's range limit → use that size for the full scan (fewer total requests).
-  // Example: if Arc allows 10k, we use 10k chunks → 50 chunks / 10 parallel = 5 batches ≈ 1 s
   for (const probe of PROBE_SIZES) {
     const probeFrom = latest > probe ? latest - probe : 0n
     try {
@@ -101,9 +136,8 @@ async function fetchLogs(
         address, event: BADGE_MINTED_EVENT, fromBlock: probeFrom, toBlock: latest,
       })
       const probeLogs = mapLogs(raw)
-      // Probe covered the full window → done in 1 request
+      saveChunkSize(chainKey, probe)  // cache for next load
       if (probeFrom <= fromBlock) return { logs: probeLogs, ok: true }
-      // Probe worked but only partial — scan the remainder with same chunk size
       const rest = await paginateRange(client, address, fromBlock, probeFrom - 1n, probe)
       return { logs: [...rest, ...probeLogs], ok: true }
     } catch { /* try smaller probe */ }
@@ -170,9 +204,9 @@ export default function LeaderboardPage({
       } catch {}
     }
     const [arcRes, tempoRes, rhRes] = await Promise.all([
-      fetchLogs(arcClient, ARC_CONTRACT),
-      fetchLogs(tempoClient, TEMPO_CONTRACT),
-      fetchLogs(rhClient, RH_CONTRACT),
+      fetchLogs(arcClient, ARC_CONTRACT, 'arc'),
+      fetchLogs(tempoClient, TEMPO_CONTRACT, 'tempo'),
+      fetchLogs(rhClient, RH_CONTRACT, 'robinhood'),
     ])
     const ok = { arc: arcRes.ok, tempo: tempoRes.ok, robinhood: rhRes.ok }
     setChainOk(ok)

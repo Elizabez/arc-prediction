@@ -36,51 +36,66 @@ const TABS: { key: TabKey; label: string; emoji: string; color: string }[] = [
 ]
 
 // ── Cache ──────────────────────────────────────────────────────────
-const CACHE_KEY = 'leaderboard_v2'
+const CACHE_KEY = 'leaderboard_v3'
 const CACHE_TTL = 5 * 60 * 1000 // 5 minutes
 
-const CHUNK_SIZE = BigInt(10_000) // blocks per paginated request
+// Scan only the most recent N blocks — quiz launched 2026-03-10, so
+// 500k blocks at ~2s/block ≈ last 11 days, covers all real mints.
+const RECENT_WINDOW = BigInt(500_000)
+const CHUNK_SIZE    = BigInt(5_000)  // blocks per request in paginated mode
+const MAX_PARALLEL  = 5              // concurrent getLogs requests
+
+function mapLogs(raw: any[]): { user: string }[] {
+  return raw.map((l: any) => ({ user: l.args.user as string }))
+}
 
 async function fetchLogs(
   client: ReturnType<typeof createPublicClient>,
   address: `0x${string}`
 ): Promise<{ logs: { user: string }[]; ok: boolean }> {
-  // Try full range first (works on most standard RPCs)
+  // Stage 1 — full range (works on Robinhood / standard RPCs)
   try {
     const raw = await (client as any).getLogs({
-      address,
-      event: BADGE_MINTED_EVENT,
-      fromBlock: 0n,
-      toBlock: 'latest',
+      address, event: BADGE_MINTED_EVENT, fromBlock: 0n, toBlock: 'latest',
     })
-    return { logs: raw.map((l: any) => ({ user: l.args.user as string })), ok: true }
-  } catch {
-    // RPC rejected full range — fall through to paginated approach
-  }
+    return { logs: mapLogs(raw), ok: true }
+  } catch { /* fall through */ }
 
-  // Paginated fallback: query in CHUNK_SIZE-block windows
+  // Stage 2 — get current block number
+  let latest: bigint
+  try { latest = await (client as any).getBlockNumber() }
+  catch { return { logs: [], ok: false } }
+
+  const fromBlock = latest > RECENT_WINDOW ? latest - RECENT_WINDOW : 0n
+
+  // Stage 3 — try recent window in one shot (RPCs with large-but-limited range)
   try {
-    const latest: bigint = await (client as any).getBlockNumber()
-    const allLogs: { user: string }[] = []
-    for (let from = 0n; from <= latest; from += CHUNK_SIZE) {
-      const to = from + CHUNK_SIZE - 1n < latest ? from + CHUNK_SIZE - 1n : latest
-      try {
-        const raw = await (client as any).getLogs({
-          address,
-          event: BADGE_MINTED_EVENT,
-          fromBlock: from,
-          toBlock: to,
-        })
-        allLogs.push(...raw.map((l: any) => ({ user: l.args.user as string })))
-      } catch {
-        // skip failed chunk and continue
-      }
-    }
-    return { logs: allLogs, ok: true }
-  } catch (e) {
-    console.warn('getLogs failed entirely for', address, e)
-    return { logs: [], ok: false }
+    const raw = await (client as any).getLogs({
+      address, event: BADGE_MINTED_EVENT, fromBlock, toBlock: latest,
+    })
+    return { logs: mapLogs(raw), ok: true }
+  } catch { /* fall through */ }
+
+  // Stage 4 — parallel chunked paginate over recent window
+  // 500k / 5k = 100 chunks → 20 batches of 5 → ~4 s at 200 ms/batch
+  const chunks: [bigint, bigint][] = []
+  for (let f = fromBlock; f <= latest; f += CHUNK_SIZE) {
+    const t = f + CHUNK_SIZE - 1n < latest ? f + CHUNK_SIZE - 1n : latest
+    chunks.push([f, t])
   }
+  const allLogs: { user: string }[] = []
+  for (let i = 0; i < chunks.length; i += MAX_PARALLEL) {
+    const batch = chunks.slice(i, i + MAX_PARALLEL)
+    const results = await Promise.allSettled(
+      batch.map(([f, t]) => (client as any).getLogs({
+        address, event: BADGE_MINTED_EVENT, fromBlock: f, toBlock: t,
+      }))
+    )
+    for (const r of results) {
+      if (r.status === 'fulfilled') allLogs.push(...mapLogs(r.value as any[]))
+    }
+  }
+  return { logs: allLogs, ok: true }
 }
 
 function buildLeaderboard(
